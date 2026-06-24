@@ -16,7 +16,7 @@ use RoundlyConsulting\Forms\Models\Submission;
 use RoundlyConsulting\Forms\Tests\testable\ThrowingResolver;
 
 beforeEach(function () {
-    $form = Form::factory()->create(['key' => 'myform']);
+    $form = Form::factory()->public()->create(['key' => 'myform']);
     $group = Group::factory()->for($form)->create(['key' => 'mygroup']);
     Field::factory()->for($form)->for($group)->create(['key' => 'one', 'order' => 0]);
     Field::factory()->for($form)->for($group)->create(['key' => 'two', 'order' => 1]);

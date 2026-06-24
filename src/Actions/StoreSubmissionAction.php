@@ -9,7 +9,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use RoundlyConsulting\Forms\DataTransferObjects\SubmissionData;
 use RoundlyConsulting\Forms\DataTransferObjects\SubmissionResult;
+use RoundlyConsulting\Forms\Enums\SubmissionStatus;
 use RoundlyConsulting\Forms\Events\FormSubmitted;
+use RoundlyConsulting\Forms\Exceptions\FormSubmissionClosedException;
 use RoundlyConsulting\Forms\Models\Field;
 use RoundlyConsulting\Forms\Models\Form;
 
@@ -19,8 +21,12 @@ final class StoreSubmissionAction
         private readonly CreateSubmissionAction $createSubmission,
     ) {}
 
-    public function execute(Form $form, Request $request, ?Model $sender = null): SubmissionResult
+    public function execute(Form $form, Request $request, ?Model $sender = null, bool $bypassClosed = false): SubmissionResult
     {
+        if (! $bypassClosed && ! $form->isAcceptingSubmissions()) {
+            throw FormSubmissionClosedException::forKey($form->key);
+        }
+
         $uuid = Str::orderedUuid()->toString();
 
         $fieldCount = $form->getConnection()->transaction(function () use ($form, $request, $sender, $uuid): int {
@@ -33,7 +39,7 @@ final class StoreSubmissionAction
                     );
 
                     $this->createSubmission->execute(
-                        SubmissionData::forField($field, $uuid, $value, $sender),
+                        SubmissionData::forField($field, $uuid, $value, $sender, SubmissionStatus::Final),
                     );
                 })
                 ->count();

@@ -16,6 +16,7 @@ function seedForm(): Form
     return Forms::create(new FormDefinitionData(
         key: 'contact',
         name: 'Contact us',
+        isPublic: true,
         groups: [
             new GroupDefinitionData('details', 'Your details', fields: [
                 new FieldDefinitionData('name', 'Name', validations: ['required']),
