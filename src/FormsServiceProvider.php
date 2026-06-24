@@ -6,6 +6,7 @@ namespace RoundlyConsulting\Forms;
 
 use Illuminate\Foundation\AliasLoader;
 use Illuminate\Support\ServiceProvider;
+use RoundlyConsulting\Forms\Commands\SyncFormsCommand;
 use RoundlyConsulting\Forms\Facades\Forms;
 use RoundlyConsulting\Forms\Services\FormsService;
 
@@ -27,6 +28,10 @@ final class FormsServiceProvider extends ServiceProvider
         AliasLoader::getInstance()->alias('Forms', Forms::class);
 
         if ($this->app->runningInConsole()) {
+            $this->commands([
+                SyncFormsCommand::class,
+            ]);
+
             $this->publishes([
                 __DIR__.'/../config/forms.php' => config_path('forms.php'),
             ], 'forms-config');
