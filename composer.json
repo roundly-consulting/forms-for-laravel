@@ -1,0 +1,69 @@
+{
+    "name": "roundly-consulting/forms-for-laravel",
+    "description": "Manage form structures, fields, and submissions in the database.",
+    "keywords": [
+        "roundly-consulting",
+        "laravel",
+        "forms",
+        "fields",
+        "submissions"
+    ],
+    "homepage": "https://github.com/roundly-consulting/forms-for-laravel",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Andrej Mihaliak",
+            "email": "andrej@mihaliak.com",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.4",
+        "illuminate/contracts": "^12.0|^13.0"
+    },
+    "require-dev": {
+        "larastan/larastan": "^3.0",
+        "laravel/pint": "^1.18",
+        "nunomaduro/collision": "^8.8|^9.0",
+        "orchestra/testbench": "^10.0|^11.0",
+        "pestphp/pest": "^4.0",
+        "pestphp/pest-plugin-laravel": "^4.0",
+        "phpstan/extension-installer": "^1.4",
+        "phpstan/phpstan-deprecation-rules": "^2.0",
+        "phpstan/phpstan-phpunit": "^2.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "RoundlyConsulting\\Forms\\": "src",
+            "RoundlyConsulting\\Forms\\Database\\Factories\\": "database/factories"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "RoundlyConsulting\\Forms\\Tests\\": "tests"
+        }
+    },
+    "scripts": {
+        "post-autoload-dump": "@php ./vendor/bin/testbench package:discover --ansi",
+        "format": "vendor/bin/pint",
+        "analyse": "vendor/bin/phpstan analyse --no-progress",
+        "test": "vendor/bin/pest",
+        "test-coverage": "vendor/bin/pest --coverage --min=90"
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true,
+            "phpstan/extension-installer": true
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "RoundlyConsulting\\Forms\\FormsServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
