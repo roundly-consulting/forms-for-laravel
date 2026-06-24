@@ -61,7 +61,17 @@ return [
     // `default` is used for any type without an explicit mapping.
     'fields' => [
         'default' => \RoundlyConsulting\Forms\Resolvers\DefaultResolver::class,
+        'file' => \RoundlyConsulting\Forms\Resolvers\FileResolver::class,
     ],
+
+    // Filesystem settings used by the FileResolver.
+    'file' => [
+        'disk' => env('FORMS_FILE_DISK', config('filesystems.default', 'local')),
+        'directory' => env('FORMS_FILE_DIRECTORY', 'form-uploads'),
+    ],
+
+    // Forms defined declaratively and synced to the DB with `php artisan forms:sync`.
+    'definitions' => [],
 ];
 ```
 
@@ -72,6 +82,10 @@ return [
 | `models.field` | `class-string` | `Models\Field` | Model used for fields. |
 | `models.submission` | `class-string` | `Models\Submission` | Model used for submissions. |
 | `fields.default` | `class-string` | `Resolvers\DefaultResolver` | Resolver used for any field type without a specific mapping. |
+| `fields.file` | `class-string` | `Resolvers\FileResolver` | Resolver for `file` fields; stores the upload on a disk. |
+| `file.disk` | `string` | app default disk (`FORMS_FILE_DISK`) | Disk uploaded files are stored on. |
+| `file.directory` | `string` | `form-uploads` (`FORMS_FILE_DIRECTORY`) | Directory within the disk. |
+| `definitions` | `array` | `[]` | Declarative form definitions synced by `forms:sync`. |
 
 ## Usage
 
@@ -141,6 +155,45 @@ $form = Forms::define('contact', 'Contact us')
 Field builder methods: `type()`, `help()`, `autofill()`, `options()`, `rules()`, `order()`.
 Override the auto-assigned order with `->order(n)` on a group or field.
 
+#### Typed field shortcuts
+
+Thin sugar over `type()`/`rules()`/`options()` for the common field kinds:
+
+```php
+$g->field('email', 'Email')->email()->required();
+$g->field('bio', 'Bio')->textarea();
+$g->field('terms', 'Terms')->checkbox();      // type=checkbox, rule=boolean
+$g->field('age', 'Age')->number();            // type=number, rule=numeric
+$g->field('dob', 'DOB')->date();              // type=date, rule=date
+$g->field('role', 'Role')->select(['a' => 'A', 'b' => 'B']);
+$g->field('avatar', 'Avatar')->file();        // type=file (see FileResolver)
+```
+
+#### Conditional fields
+
+Show or require a field only when another field in the same form matches a value. The
+condition is stored on the field and enforced during validation — a hidden field is skipped,
+and a conditionally-required field is enforced only when its condition is met:
+
+```php
+$g->field('country', 'Country');
+$g->field('state', 'State')->requiredWhen('country', 'US');
+$g->field('guardian', 'Guardian')->visibleWhen('age', [16, 17], 'in');
+```
+
+Supported operators: `=` (default), `!=`, `in`, `not_in`, `filled`, `empty`.
+
+#### Custom validation messages
+
+Pass per-field messages as the second argument to `rules()` (or via `messages()`); they're
+stored on the field and applied by the validator:
+
+```php
+$g->field('email', 'Email')->rules(['required', 'email'], [
+    'required' => 'We really need your email.',
+]);
+```
+
 ### Working with forms via the `Forms` facade
 
 The `Forms` facade resolves a form with its ordered groups and fields, validates request
@@ -173,6 +226,130 @@ $result->submittedAt; // CarbonInterface timestamp
 backward compatibility. `RoundlyConsulting\Forms\Services\FormsService` (the object behind
 the facade) exposes the same API and can be resolved from the container directly.
 
+#### Closed forms are rejected
+
+`submit()`/`storeSubmission()` reject submissions to a form that isn't accepting them — a
+non-public form, or one whose `expires_at` has passed — by throwing
+`RoundlyConsulting\Forms\Exceptions\FormSubmissionClosedException`. Pass `bypassClosed: true`
+for trusted internal/admin submissions:
+
+```php
+Forms::submit($form, request(), $user, bypassClosed: true);
+```
+
+Two readable helpers back this: `$form->isExpired()` and `$form->isAcceptingSubmissions()`
+(public **and** not expired). `$field->isRequired()` reports whether a field carries a
+`required` rule.
+
+### Draft submissions (save & resume)
+
+Save a partial submission now and finalize it later. Drafts skip validation; finalizing runs
+full validation before promoting the draft to a final submission:
+
+```php
+$draft = Forms::draft($form, request(), $user);   // returns SubmissionResult with a uuid
+// ...later, resume by reusing the uuid (overwrites the prior draft values):
+Forms::draft($form, request(), $user, uuid: $draft->uuid);
+// finalize — validates, then marks the rows final and dispatches FormSubmitted:
+Forms::finalize($draft->uuid);
+```
+
+Drafts are excluded from final-submission reads by default.
+
+### Reading submissions
+
+`Forms::submissions($form)` returns a fluent reader that assembles the per-field rows back
+into one keyed `[field_key => value]` set per submission:
+
+```php
+$answers = Forms::submissions($form)
+    ->forSender($user)   // optional
+    ->latest()           // or ->oldest()
+    ->get();             // Collection<AssembledSubmission>
+
+$answers->first()->values;          // ['name' => 'Jane', 'email' => 'jane@example.com']
+$answers->first()->value('name');   // 'Jane'
+```
+
+Drafts are excluded unless you call `->withDrafts()`.
+
+### Editing a form's structure
+
+`Forms::update($key)` returns a builder that diffs your definition against the persisted
+structure and saves the changes in a transaction — adding new groups/fields, renaming or
+reordering existing ones, and firing the `FormUpdated` / `Group*` / `Field*` events only for
+records that actually changed. Records absent from the definition are left untouched:
+
+```php
+Forms::update('contact')
+    ->name('Contact us')
+    ->public()
+    ->group('details', 'Your details', function (GroupBuilder $g): void {
+        $g->field('name', 'Full name')->rules(['required']);
+        $g->field('phone', 'Phone'); // added
+    })
+    ->save();
+```
+
+### File uploads
+
+Map a field to the `file` type and the bundled `FileResolver` stores the upload on the
+configured disk and persists the stored path as the submission value:
+
+```php
+$g->field('passport', 'Passport')->file();
+
+// read back the path / public URL:
+$resolver = Forms::find('kyc')->fields->firstWhere('key', 'passport')->resolver();
+$resolver->fromStorage(); // 'form-uploads/abc.pdf'
+$resolver->url();         // Storage::disk(...)->url($path)
+```
+
+### The HasForms trait
+
+Add `RoundlyConsulting\Forms\Concerns\HasForms` to a user/sender model for a morph relation
+and submit shortcuts:
+
+```php
+use RoundlyConsulting\Forms\Concerns\HasForms;
+
+class User extends Authenticatable
+{
+    use HasForms;
+}
+
+$user->submitTo($form, request());     // delegates to Forms::submit with $user as sender
+$user->draftTo($form, request());      // delegates to Forms::draft
+$user->formSubmissions;                // morphMany of the user's submissions
+```
+
+### Declarative forms (`forms:sync`)
+
+Define forms in `config('forms.definitions')` and sync them into the database — creating
+missing forms and updating changed ones, idempotently:
+
+```php
+// config/forms.php
+'definitions' => [
+    [
+        'key' => 'contact',
+        'name' => 'Contact',
+        'is_public' => true,
+        'groups' => [
+            ['key' => 'details', 'name' => 'Details', 'fields' => [
+                ['key' => 'name', 'name' => 'Name', 'rules' => ['required']],
+            ]],
+        ],
+    ],
+],
+```
+
+```bash
+php artisan forms:sync
+```
+
+`Forms::sync($definitions)` runs the same logic with an explicit definition list.
+
 ### Reacting to events
 
 After a submission, the package dispatches
@@ -203,6 +380,8 @@ Lookups throw package-specific exceptions, all extending
 - `FormNotFoundException` — no form matches the key.
 - `MultipleFormsFoundException` — more than one form matches the key.
 - `UnresolvableFieldException` — no resolver is registered for a field's type.
+- `FormSubmissionClosedException` — submission attempted on a non-public or expired form.
+- `DraftNotFoundException` — `finalize()` called with an unknown draft uuid.
 
 Messages are translatable via the `forms::messages` namespace.
 
@@ -224,7 +403,8 @@ cascaded, so soft-deleting a form leaves its groups, fields, and submissions int
 ### Custom field resolvers
 
 A resolver controls how a field's value is read from the request (`toStorable`) and read back
-from storage (`fromStorage`). Implement `RoundlyConsulting\Forms\Resolvers\Resolver` and map it
+from storage (`fromStorage`). The package ships `DefaultResolver` and `FileResolver` (see
+**File uploads** above). Implement `RoundlyConsulting\Forms\Resolvers\Resolver` and map it
 to a field `type` in `config/forms.php`:
 
 ```php
