@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RoundlyConsulting\Forms\DataTransferObjects;
 
 use Illuminate\Database\Eloquent\Model;
+use RoundlyConsulting\Forms\Enums\SubmissionStatus;
 use RoundlyConsulting\Forms\Models\Field;
 
 final readonly class SubmissionData
@@ -18,11 +19,17 @@ final readonly class SubmissionData
         public int $groupId,
         public int $fieldId,
         public array $value,
+        public ?SubmissionStatus $status = null,
     ) {}
 
     /** @param  array<array-key, mixed>  $value */
-    public static function forField(Field $field, string $uuid, array $value, ?Model $sender = null): self
-    {
+    public static function forField(
+        Field $field,
+        string $uuid,
+        array $value,
+        ?Model $sender = null,
+        ?SubmissionStatus $status = null,
+    ): self {
         $senderKey = $sender?->getKey();
 
         return new self(
@@ -33,6 +40,7 @@ final readonly class SubmissionData
             groupId: $field->group_id,
             fieldId: $field->getKey(),
             value: $value,
+            status: $status,
         );
     }
 }

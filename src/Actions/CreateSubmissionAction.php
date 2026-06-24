@@ -22,6 +22,7 @@ final class CreateSubmissionAction
             'group_id' => $data->groupId,
             'field_id' => $data->fieldId,
             'value' => $data->value,
+            'status' => $data->status,
         ]);
 
         $submission->save();
