@@ -36,6 +36,12 @@ Optionally publish the config file:
 php artisan vendor:publish --tag="forms-config"
 ```
 
+Optionally publish the translations to customise the package's messages:
+
+```bash
+php artisan vendor:publish --tag="forms-translations"
+```
+
 ## Configuration
 
 The published `config/forms.php` lets you swap the package models for your own and register
@@ -110,37 +116,67 @@ $field = Field::create([
 Each field exposes a dotted `path()` built from `form.key`, `group.key`, and `field.key`
 (e.g. `my-form.first-step.name`) — this is the request key the resolver reads from.
 
-### Working with forms via `FormsService`
+### Defining a form with the fluent builder
 
-`FormsService` resolves a form with its ordered groups and fields, validates request input
-against each field's rules, and stores submissions. Extend it to add your own logic.
+The `Forms` facade exposes a fluent builder that defines a whole form — groups and fields —
+in one transactional call, auto-assigning each `order` by declaration sequence:
 
 ```php
-use RoundlyConsulting\Forms\Services\FormsService;
+use RoundlyConsulting\Forms\Facades\Forms;
+use RoundlyConsulting\Forms\GroupBuilder;
 
-$forms = resolve(FormsService::class);
+$form = Forms::define('contact', 'Contact us')
+    ->public()
+    ->expiresAt(now()->addDays(30))
+    ->group('details', 'Your details', function (GroupBuilder $g): void {
+        $g->field('name', 'Name')->rules(['required', 'string'])->help('Full name');
+        $g->field('email', 'Email')->type('email')->rules(['required', 'email']);
+    })
+    ->group('message', 'Message', function (GroupBuilder $g): void {
+        $g->field('body', 'Message')->type('textarea')->rules(['required']);
+    })
+    ->create(); // returns the Form, persists the structure, dispatches FormCreated
+```
+
+Field builder methods: `type()`, `help()`, `autofill()`, `options()`, `rules()`, `order()`.
+Override the auto-assigned order with `->order(n)` on a group or field.
+
+### Working with forms via the `Forms` facade
+
+The `Forms` facade resolves a form with its ordered groups and fields, validates request
+input against each field's rules, and stores submissions:
+
+```php
+use RoundlyConsulting\Forms\Facades\Forms;
 
 // Eager-loads groups and fields, ordered by their `order` column.
-$form = $forms->find('my-form');
+// Throws RoundlyConsulting\Forms\Exceptions\FormNotFoundException for an unknown key.
+$form = Forms::find('contact');
 
-// Validate request input against every field's `validations`.
-// Throws Illuminate\Validation\ValidationException on failure.
-$forms->validate(form: $form, request: request());
+// Validate request input — throws Illuminate\Validation\ValidationException on failure.
+// Returns the validated data.
+$validated = Forms::validate(form: $form, request: request());
 
-// Persist a submission for every field, returning the submission UUID.
-$uuid = $forms->storeSubmission(
+// Persist a submission for every field. Returns a SubmissionResult.
+$result = Forms::submit(
     form: $form,
     request: request(),
     sender: auth()->user(), // any Eloquent model, or null
 );
 
-echo "Submitted with ID: {$uuid}";
+$result->uuid;        // shared reference id for this submission
+$result->fieldCount;  // number of fields stored
+$result->submittedAt; // CarbonInterface timestamp
 ```
 
-### Reacting to submissions
+`Forms::storeSubmission()` is also available and returns just the UUID string for
+backward compatibility. `RoundlyConsulting\Forms\Services\FormsService` (the object behind
+the facade) exposes the same API and can be resolved from the container directly.
 
-After `storeSubmission`, the package dispatches `RoundlyConsulting\Forms\Events\FormSubmitted`
-with the `Form` and the submission UUID:
+### Reacting to events
+
+After a submission, the package dispatches
+`RoundlyConsulting\Forms\Events\FormSubmitted`:
 
 ```php
 use RoundlyConsulting\Forms\Events\FormSubmitted;
@@ -150,10 +186,40 @@ class NotifyAdminsOfSubmission
     public function handle(FormSubmitted $event): void
     {
         // $event->form        — the submitted Form
-        // $event->submission  — the submission UUID (string)
+        // $event->uuid        — the submission reference id (string)
+        // $event->fieldCount  — number of fields stored (int)
     }
 }
 ```
+
+The structure also emits lifecycle events you can listen to: `FormCreated`, `FormUpdated`,
+`FormDeleted`, and the equivalent `Group*` and `Field*` events (each carrying the model).
+
+### Exceptions
+
+Lookups throw package-specific exceptions, all extending
+`RoundlyConsulting\Forms\Exceptions\FormsException`:
+
+- `FormNotFoundException` — no form matches the key.
+- `MultipleFormsFoundException` — more than one form matches the key.
+- `UnresolvableFieldException` — no resolver is registered for a field's type.
+
+Messages are translatable via the `forms::messages` namespace.
+
+### Query scopes & soft deletes
+
+`Form` ships query scopes: `public()`, `active()` (no expiry or not yet expired),
+`expired()`, and `forKey($key)`. `Group` and `Field` expose `ordered()`:
+
+```php
+use RoundlyConsulting\Forms\Models\Form;
+
+$openForms = Form::query()->public()->active()->get();
+```
+
+All four models use soft deletes — deleting a form keeps its rows and submissions in the
+database (recoverable with `restore()` / queryable with `withTrashed()`). Deletes are not
+cascaded, so soft-deleting a form leaves its groups, fields, and submissions intact.
 
 ### Custom field resolvers
 
@@ -219,10 +285,10 @@ class CurrentUserEmail implements Autofill
 Ready-made `JsonResource`s render a form and its structure for API responses:
 
 ```php
+use RoundlyConsulting\Forms\Facades\Forms;
 use RoundlyConsulting\Forms\Resources\FormResource;
-use RoundlyConsulting\Forms\Services\FormsService;
 
-$form = resolve(FormsService::class)->find('my-form');
+$form = Forms::find('my-form');
 
 return FormResource::make($form);
 ```
