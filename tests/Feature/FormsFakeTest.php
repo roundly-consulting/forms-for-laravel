@@ -31,9 +31,9 @@ function fakeRequest(Form $form, array $values): Request
 it('swaps the bound manager for a recording fake', function () {
     $fake = Forms::fake();
 
-    expect($fake)->toBeInstanceOf(FormsFake::class)
-        ->and(app('forms.manager'))->toBe($fake)
-        ->and(app(FormsService::class))->toBe($fake);
+    expect($fake)->toBeInstanceOf(FormsFake::class);
+    expect(app('forms.manager'))->toBe($fake);
+    expect(app(FormsService::class))->toBe($fake);
 });
 
 it('records a fluent form definition', function () {
