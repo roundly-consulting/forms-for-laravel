@@ -482,6 +482,54 @@ return FormResource::make($form);
 composer test
 ```
 
+### Testing your application
+
+`Forms::fake()` swaps the manager for a recording fake so you can assert on form
+activity without standing up listeners. It still performs against the database, so
+the rows you'd expect are really created — the fake just records intent on top.
+
+```php
+use RoundlyConsulting\Forms\Facades\Forms;
+
+$fake = Forms::fake();
+
+// ... exercise your application code that submits the form ...
+
+$fake->assertSubmitted($form);
+$fake->assertSubmitted($form, fn ($result, $form) => $result->fieldCount === 3);
+$fake->assertSubmittedCount(1);
+$fake->assertNotSubmitted($otherForm);
+$fake->assertNothingSubmitted();
+
+$fake->assertDrafted($form);
+$fake->assertFinalized($uuid);
+$fake->assertFormDefined('contact');
+$fake->assertFormCreated();
+$fake->assertFormUpdated('contact');
+$fake->assertSubmissionCreated();
+$fake->assertSynced();
+```
+
+The `InteractsWithForms` trait adds ergonomic helpers to your test case
+(`fakeForms()`, `submitForm($form, $values, $sender)`, `draftForm(...)`):
+
+```php
+uses(RoundlyConsulting\Forms\Testing\InteractsWithForms::class);
+
+$fake = $this->fakeForms();
+$this->submitForm($form, ['details' => ['name' => 'Ann']]);
+$fake->assertSubmitted($form);
+```
+
+Opt into the Pest expectation matchers from your `tests/Pest.php`:
+
+```php
+RoundlyConsulting\Forms\Testing\FormExpectations::register();
+
+expect($form)->toBeAcceptingSubmissions();
+expect($expiredForm)->toBeExpired();
+```
+
 ## Changelog
 
 Please see [CHANGELOG](CHANGELOG.md) for what has changed recently.

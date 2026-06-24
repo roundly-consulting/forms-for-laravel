@@ -5,6 +5,10 @@ parameters:
         - database
         - config
         - tests
+    excludePaths:
+        # Exercises Pest's dynamic $this/trait binding and custom expectation
+        # matchers, which static analysis cannot model.
+        - tests/Feature/FormsTestingHelpersTest.php
     checkOctaneCompatibility: true
     checkModelProperties: true
     configDirectories:

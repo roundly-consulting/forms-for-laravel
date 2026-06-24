@@ -8,9 +8,12 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Orchestra\Testbench\TestCase as Orchestra;
 use RoundlyConsulting\Forms\FormsServiceProvider;
+use RoundlyConsulting\Forms\Testing\InteractsWithForms;
 
 abstract class TestCase extends Orchestra
 {
+    use InteractsWithForms;
+
     /** @return array<int, class-string> */
     protected function getPackageProviders($app): array
     {

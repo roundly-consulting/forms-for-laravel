@@ -6,6 +6,7 @@ namespace RoundlyConsulting\Forms\Services;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\Str;
 use RoundlyConsulting\Forms\Actions\CreateFormAction;
 use RoundlyConsulting\Forms\Actions\CreateSubmissionAction;
@@ -24,6 +25,7 @@ use RoundlyConsulting\Forms\Models\Field;
 use RoundlyConsulting\Forms\Models\Form;
 use RoundlyConsulting\Forms\Models\Submission;
 use RoundlyConsulting\Forms\Submissions\SubmissionQuery;
+use RoundlyConsulting\Forms\Testing\FormsFake;
 use RoundlyConsulting\Forms\UpdateFormBuilder;
 
 /**
@@ -43,6 +45,20 @@ class FormsService
         private readonly FinalizeSubmissionAction $finalizeSubmission = new FinalizeSubmissionAction,
         private readonly SyncFormsAction $syncForms = new SyncFormsAction,
     ) {}
+
+    /**
+     * Swap the bound manager for a recording {@see FormsFake} and return it,
+     * so host-application tests can assert on form activity.
+     */
+    public static function fake(): FormsFake
+    {
+        $fake = new FormsFake;
+
+        app()->instance('forms.manager', $fake);
+        Facade::clearResolvedInstance('forms.manager');
+
+        return $fake;
+    }
 
     public function find(string $key): Form
     {

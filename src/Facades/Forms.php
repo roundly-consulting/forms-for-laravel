@@ -28,6 +28,7 @@ use RoundlyConsulting\Forms\UpdateFormBuilder;
  * @method static SubmissionResult finalize(string $uuid)
  * @method static SubmissionQuery submissions(Form $form)
  * @method static Submission createSubmission(Field $field, array<array-key, mixed> $value, ?\Illuminate\Database\Eloquent\Model $sender = null, ?string $uuid = null)
+ * @method static \RoundlyConsulting\Forms\Testing\FormsFake fake()
  *
  * @see FormsService
  */
