@@ -5,8 +5,6 @@ declare(strict_types=1);
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Validation\ValidationException;
-use Mockery\Expectation;
-use Mockery\MockInterface;
 use RoundlyConsulting\Forms\Events\FormSubmitted;
 use RoundlyConsulting\Forms\Models\Field;
 use RoundlyConsulting\Forms\Models\Form;
@@ -76,11 +74,8 @@ it('creates single submission of field', function () {
 });
 
 it('creates full form submission', function () {
-    /** @var FormsService&MockInterface $fs */
-    $fs = Mockery::mock(FormsService::class)->makePartial();
-    /** @var Expectation $expectation */
-    $expectation = $fs->shouldReceive('createSubmission');
-    $expectation->once();
+    /** @var FormsService $fs */
+    $fs = resolve(FormsService::class);
 
     Event::fake();
 
@@ -102,9 +97,11 @@ it('creates full form submission', function () {
     );
 
     expect($submission)->toBeString();
+    expect(Submission::query()->where('uuid', $submission)->count())->toBe(1);
 
     Event::assertDispatched(function (FormSubmitted $e) use ($submission) {
         return $e->form->key === 'myform' &&
-               $e->submission === $submission;
+               $e->uuid === $submission &&
+               $e->fieldCount === 1;
     });
 });
