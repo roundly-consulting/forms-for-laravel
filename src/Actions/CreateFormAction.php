@@ -71,6 +71,8 @@ final class CreateFormAction
             'autofill' => $data->autofill,
             'options' => $data->options,
             'validations' => $data->validations,
+            'conditions' => $data->conditions,
+            'messages' => $data->messages,
             'order' => $data->order !== 0 ? $data->order : $defaultOrder,
         ]);
 

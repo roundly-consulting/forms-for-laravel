@@ -9,6 +9,8 @@ final readonly class FieldDefinitionData
     /**
      * @param  array<array-key, mixed>|null  $options
      * @param  array<array-key, mixed>|null  $validations
+     * @param  list<array<string, mixed>>|null  $conditions
+     * @param  array<string, string>|null  $messages
      */
     public function __construct(
         public string $key,
@@ -19,6 +21,8 @@ final readonly class FieldDefinitionData
         public ?array $options = null,
         public ?array $validations = null,
         public int $order = 0,
+        public ?array $conditions = null,
+        public ?array $messages = null,
     ) {}
 
     /** @param  array<string, mixed>  $data */
@@ -27,7 +31,11 @@ final readonly class FieldDefinitionData
         /** @var array<array-key, mixed>|null $options */
         $options = $data['options'] ?? null;
         /** @var array<array-key, mixed>|null $validations */
-        $validations = $data['validations'] ?? null;
+        $validations = $data['validations'] ?? $data['rules'] ?? null;
+        /** @var list<array<string, mixed>>|null $conditions */
+        $conditions = $data['conditions'] ?? null;
+        /** @var array<string, string>|null $messages */
+        $messages = $data['messages'] ?? null;
 
         return new self(
             key: (string) $data['key'],
@@ -38,6 +46,8 @@ final readonly class FieldDefinitionData
             options: $options,
             validations: $validations,
             order: isset($data['order']) ? (int) $data['order'] : 0,
+            conditions: $conditions,
+            messages: $messages,
         );
     }
 }
