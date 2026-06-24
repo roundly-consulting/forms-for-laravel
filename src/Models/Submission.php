@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace RoundlyConsulting\Forms\Models;
 
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use RoundlyConsulting\Forms\Database\Factories\SubmissionFactory;
+use RoundlyConsulting\Forms\Enums\SubmissionStatus;
 
 /**
  * @property int $id
@@ -21,6 +23,7 @@ use RoundlyConsulting\Forms\Database\Factories\SubmissionFactory;
  * @property int $group_id
  * @property int $field_id
  * @property array<array-key, mixed> $value
+ * @property SubmissionStatus|null $status
  * @property CarbonInterface $created_at
  * @property CarbonInterface $updated_at
  * @property CarbonInterface|null $deleted_at
@@ -42,7 +45,36 @@ class Submission extends Model
     {
         return [
             'value' => 'array',
+            'status' => SubmissionStatus::class,
         ];
+    }
+
+    /**
+     * Final submissions are those explicitly marked final or left without a
+     * status, so submissions created before drafts existed remain final.
+     *
+     * @param  Builder<Submission>  $query
+     * @return Builder<Submission>
+     */
+    public function scopeFinal(Builder $query): Builder
+    {
+        return $query->where(function (Builder $query): void {
+            $query->whereNull('status')->orWhere('status', SubmissionStatus::Final->value);
+        });
+    }
+
+    /**
+     * @param  Builder<Submission>  $query
+     * @return Builder<Submission>
+     */
+    public function scopeDraft(Builder $query): Builder
+    {
+        return $query->where('status', SubmissionStatus::Draft->value);
+    }
+
+    public function isDraft(): bool
+    {
+        return $this->status === SubmissionStatus::Draft;
     }
 
     public function path(): string

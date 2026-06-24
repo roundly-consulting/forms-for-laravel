@@ -30,6 +30,8 @@ use RoundlyConsulting\Forms\Resolvers\Resolver;
  * @property string|null $autofill
  * @property array<array-key, mixed>|null $options
  * @property array<array-key, mixed>|null $validations
+ * @property array<array-key, mixed>|null $conditions
+ * @property array<array-key, mixed>|null $messages
  * @property int $order
  * @property CarbonInterface $created_at
  * @property CarbonInterface $updated_at
@@ -68,8 +70,76 @@ class Field extends Model
         return [
             'options' => 'array',
             'validations' => 'array',
+            'conditions' => 'array',
+            'messages' => 'array',
             'order' => 'int',
         ];
+    }
+
+    public function isRequired(): bool
+    {
+        foreach ($this->validations ?: [] as $rule) {
+            if (is_string($rule) && ($rule === 'required' || str_starts_with($rule, 'required'))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Decide whether this field is visible for the given request payload by
+     * evaluating its stored conditions. A field with no conditions is always
+     * visible. Conditions are matched against the dotted form path of the
+     * referenced field.
+     *
+     * @param  array<array-key, mixed>  $input
+     */
+    public function isVisible(array $input): bool
+    {
+        $conditions = $this->conditions ?: [];
+
+        if ($conditions === []) {
+            return true;
+        }
+
+        foreach ($conditions as $condition) {
+            if (! is_array($condition)) {
+                continue;
+            }
+
+            /** @var array<string, mixed> $condition */
+            $field = isset($condition['field']) ? (string) $condition['field'] : null;
+
+            if ($field === null) {
+                continue;
+            }
+
+            $path = implode('.', [$this->form->key, $this->group->key, $field]);
+            $actual = data_get($input, $path);
+
+            if (! $this->matchesCondition($actual, $condition)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /** @param  array<string, mixed>  $condition */
+    private function matchesCondition(mixed $actual, array $condition): bool
+    {
+        $operator = isset($condition['operator']) ? (string) $condition['operator'] : '=';
+        $expected = $condition['value'] ?? null;
+
+        return match ($operator) {
+            '!=' => $actual != $expected,
+            'in' => is_array($expected) && in_array($actual, $expected, false),
+            'not_in' => is_array($expected) && ! in_array($actual, $expected, false),
+            'filled' => filled($actual),
+            'empty' => blank($actual),
+            default => $actual == $expected,
+        };
     }
 
     public function resolver(): Resolver

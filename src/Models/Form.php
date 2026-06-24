@@ -89,6 +89,16 @@ class Form extends Model
         ];
     }
 
+    public function isExpired(): bool
+    {
+        return $this->expires_at !== null && $this->expires_at->isPast();
+    }
+
+    public function isAcceptingSubmissions(): bool
+    {
+        return $this->is_public && ! $this->isExpired();
+    }
+
     /** @return HasMany<Submission, $this> */
     public function submissions(): HasMany
     {
