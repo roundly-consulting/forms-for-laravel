@@ -6,15 +6,11 @@ namespace RoundlyConsulting\Forms\Events;
 
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
-use RoundlyConsulting\Forms\Models\Form;
+use RoundlyConsulting\Forms\Models\Group;
 
-final class FormSubmitted
+final class GroupCreated
 {
     use Dispatchable, SerializesModels;
 
-    public function __construct(
-        public Form $form,
-        public string $uuid,
-        public int $fieldCount,
-    ) {}
+    public function __construct(public Group $group) {}
 }

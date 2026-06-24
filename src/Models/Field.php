@@ -5,12 +5,18 @@ declare(strict_types=1);
 namespace RoundlyConsulting\Forms\Models;
 
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use RoundlyConsulting\Forms\Autofill\Autofill;
 use RoundlyConsulting\Forms\Database\Factories\FieldFactory;
+use RoundlyConsulting\Forms\Events\FieldCreated;
+use RoundlyConsulting\Forms\Events\FieldDeleted;
+use RoundlyConsulting\Forms\Events\FieldUpdated;
+use RoundlyConsulting\Forms\Exceptions\UnresolvableFieldException;
 use RoundlyConsulting\Forms\Resolvers\Resolver;
 
 /**
@@ -27,6 +33,7 @@ use RoundlyConsulting\Forms\Resolvers\Resolver;
  * @property int $order
  * @property CarbonInterface $created_at
  * @property CarbonInterface $updated_at
+ * @property CarbonInterface|null $deleted_at
  * @property-read Form $form
  * @property-read Group $group
  */
@@ -35,7 +42,25 @@ class Field extends Model
     /** @use HasFactory<FieldFactory> */
     use HasFactory;
 
+    use SoftDeletes;
+
     protected $guarded = [];
+
+    /** @var array<string, class-string> */
+    protected $dispatchesEvents = [
+        'created' => FieldCreated::class,
+        'updated' => FieldUpdated::class,
+        'deleted' => FieldDeleted::class,
+    ];
+
+    /**
+     * @param  Builder<Field>  $query
+     * @return Builder<Field>
+     */
+    public function scopeOrdered(Builder $query): Builder
+    {
+        return $query->oldest('order');
+    }
 
     /** @return array<string, string> */
     protected function casts(): array
@@ -50,11 +75,12 @@ class Field extends Model
     public function resolver(): Resolver
     {
         /** @var array<string, class-string<Resolver>> $resolvers */
-        $resolvers = config('forms.fields');
-        $resolver = $resolvers['default'];
+        $resolvers = config('forms.fields', []);
 
-        if (array_key_exists($this->type, $resolvers)) {
-            $resolver = $resolvers[$this->type];
+        $resolver = $resolvers[$this->type] ?? $resolvers['default'] ?? null;
+
+        if ($resolver === null) {
+            throw UnresolvableFieldException::forType($this->type);
         }
 
         return new $resolver($this);

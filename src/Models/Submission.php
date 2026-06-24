@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use RoundlyConsulting\Forms\Database\Factories\SubmissionFactory;
 
 /**
@@ -22,6 +23,7 @@ use RoundlyConsulting\Forms\Database\Factories\SubmissionFactory;
  * @property array<array-key, mixed> $value
  * @property CarbonInterface $created_at
  * @property CarbonInterface $updated_at
+ * @property CarbonInterface|null $deleted_at
  * @property-read Form $form
  * @property-read Group $group
  * @property-read Field $field
@@ -30,6 +32,8 @@ class Submission extends Model
 {
     /** @use HasFactory<SubmissionFactory> */
     use HasFactory;
+
+    use SoftDeletes;
 
     protected $guarded = [];
 

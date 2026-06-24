@@ -12,13 +12,14 @@ return new class extends Migration
     {
         Schema::create('submissions', function (Blueprint $table): void {
             $table->id();
-            $table->uuid()->unique();
+            $table->uuid()->index();
             $table->nullableMorphs('sender');
             $table->foreignId('form_id')->references('id')->on('forms')->onDelete('cascade');
             $table->foreignId('group_id')->references('id')->on('groups')->onDelete('cascade');
             $table->foreignId('field_id')->references('id')->on('fields')->onDelete('cascade');
             $table->json('value');
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 };

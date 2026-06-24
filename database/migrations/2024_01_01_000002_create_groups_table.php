@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('key');
             $table->integer('order')->default(0);
             $table->timestamps();
+            $table->softDeletes();
 
             $table->unique(['form_id', 'key']);
         });

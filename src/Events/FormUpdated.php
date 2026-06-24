@@ -8,13 +8,9 @@ use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 use RoundlyConsulting\Forms\Models\Form;
 
-final class FormSubmitted
+final class FormUpdated
 {
     use Dispatchable, SerializesModels;
 
-    public function __construct(
-        public Form $form,
-        public string $uuid,
-        public int $fieldCount,
-    ) {}
+    public function __construct(public Form $form) {}
 }

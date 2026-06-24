@@ -23,6 +23,7 @@ return new class extends Migration
             $table->json('validations')->nullable();
             $table->integer('order')->default(0);
             $table->timestamps();
+            $table->softDeletes();
 
             $table->unique(['group_id', 'key']);
         });
