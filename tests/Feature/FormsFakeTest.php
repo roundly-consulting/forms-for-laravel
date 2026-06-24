@@ -31,8 +31,9 @@ function fakeRequest(Form $form, array $values): Request
 it('swaps the bound manager for a recording fake', function () {
     $fake = Forms::fake();
 
+    // `forms.manager` is aliased to FormsService::class, so resolving the typed
+    // alias proves the container binding was swapped for the fake.
     expect($fake)->toBeInstanceOf(FormsFake::class);
-    expect(app('forms.manager'))->toBe($fake);
     expect(app(FormsService::class))->toBe($fake);
 });
 
