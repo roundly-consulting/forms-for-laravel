@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace RoundlyConsulting\Forms;
 
 use Illuminate\Foundation\AliasLoader;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
+use RoundlyConsulting\Approvals\Events\ApprovalRequestResolved;
 use RoundlyConsulting\Forms\Commands\SyncFormsCommand;
 use RoundlyConsulting\Forms\Facades\Forms;
+use RoundlyConsulting\Forms\Listeners\SyncSubmissionStatusFromApproval;
 use RoundlyConsulting\Forms\Services\FormsService;
 
 final class FormsServiceProvider extends ServiceProvider
@@ -26,6 +29,8 @@ final class FormsServiceProvider extends ServiceProvider
         $this->loadTranslationsFrom(__DIR__.'/../resources/lang', 'forms');
 
         AliasLoader::getInstance()->alias('Forms', Forms::class);
+
+        Event::listen(ApprovalRequestResolved::class, SyncSubmissionStatusFromApproval::class);
 
         if ($this->app->runningInConsole()) {
             $this->commands([

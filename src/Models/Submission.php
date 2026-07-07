@@ -11,12 +11,15 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use RoundlyConsulting\Forms\Concerns\HasSubmissionMedia;
 use RoundlyConsulting\Forms\Database\Factories\SubmissionFactory;
 use RoundlyConsulting\Forms\Enums\SubmissionStatus;
+use RoundlyConsulting\MediaLibrary\Contracts\HasMedia;
 
 /**
  * @property int $id
  * @property string $uuid
+ * @property int|null $form_submission_id
  * @property int|null $sender_id
  * @property string|null $sender_type
  * @property int $form_id
@@ -30,15 +33,30 @@ use RoundlyConsulting\Forms\Enums\SubmissionStatus;
  * @property-read Form $form
  * @property-read Group $group
  * @property-read Field $field
+ * @property-read FormSubmission|null $formSubmission
  */
-class Submission extends Model
+class Submission extends Model implements HasMedia
 {
     /** @use HasFactory<SubmissionFactory> */
     use HasFactory;
 
+    use HasSubmissionMedia;
     use SoftDeletes;
 
     protected $guarded = [];
+
+    /**
+     * Cast the stored field value to the real PHP type mapped from the field's
+     * definition (number -> int, checkbox -> bool, date -> Carbon, ...), using
+     * roundly-consulting/attributes-for-laravel as the type system. Unmapped
+     * field types fall back to the raw string value.
+     */
+    public function typedValue(): mixed
+    {
+        $raw = $this->value['value'] ?? null;
+
+        return $this->field->castStoredValue($raw);
+    }
 
     /** @return array<string, string> */
     protected function casts(): array
@@ -117,6 +135,15 @@ class Submission extends Model
         $form = config('forms.models.form', Form::class);
 
         return $this->belongsTo($form);
+    }
+
+    /** @return BelongsTo<FormSubmission, $this> */
+    public function formSubmission(): BelongsTo
+    {
+        /** @var class-string<FormSubmission> $formSubmission */
+        $formSubmission = config('forms.models.form_submission', FormSubmission::class);
+
+        return $this->belongsTo($formSubmission);
     }
 
     protected static function newFactory(): SubmissionFactory

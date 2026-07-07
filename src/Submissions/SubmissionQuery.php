@@ -101,7 +101,7 @@ final class SubmissionQuery
 
         $values = $group
             ->mapWithKeys(fn (Submission $submission): array => [
-                $submission->field->key => $submission->value['value'] ?? null,
+                $submission->field->key => $submission->typedValue(),
             ])
             ->all();
 

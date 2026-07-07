@@ -47,10 +47,12 @@ final class FinalizeSubmissionAction
 
         $this->validateSubmission->execute($form, $request);
 
-        $form->getConnection()->transaction(function () use ($drafts): void {
+        $form->getConnection()->transaction(function () use ($drafts, $first): void {
             $drafts->each(function (Submission $submission): void {
                 $submission->update(['status' => SubmissionStatus::Final]);
             });
+
+            $first->formSubmission?->update(['status' => SubmissionStatus::Final]);
         });
 
         FormSubmitted::dispatch($form, $uuid, $drafts->count());

@@ -13,6 +13,7 @@ use RoundlyConsulting\Forms\Enums\SubmissionStatus;
 use RoundlyConsulting\Forms\Models\Field;
 use RoundlyConsulting\Forms\Models\Form;
 use RoundlyConsulting\Forms\Models\Submission;
+use RoundlyConsulting\Forms\Resolvers\AttachesToSubmission;
 
 /**
  * Saves a partial submission as a draft without running validation, so a
@@ -21,7 +22,8 @@ use RoundlyConsulting\Forms\Models\Submission;
 final class DraftSubmissionAction
 {
     public function __construct(
-        private readonly CreateSubmissionAction $createSubmission,
+        private readonly CreateSubmissionAction $createSubmission = new CreateSubmissionAction,
+        private readonly CreateFormSubmissionAction $createFormSubmission = new CreateFormSubmissionAction,
     ) {}
 
     public function execute(Form $form, Request $request, ?Model $sender = null, ?string $uuid = null): SubmissionResult
@@ -34,17 +36,27 @@ final class DraftSubmissionAction
                 $this->clearExistingDraft($uuid);
             }
 
+            $aggregate = $this->createFormSubmission->execute($form, $uuid, $sender, SubmissionStatus::Draft);
+
             return $form
                 ->fields
-                ->each(function (Field $field) use ($uuid, $request, $sender): void {
-                    $value = $field->resolver()->toStorable(
-                        request: $request,
-                        sender: $sender,
+                ->each(function (Field $field) use ($aggregate, $uuid, $request, $sender): void {
+                    $resolver = $field->resolver();
+
+                    $submission = $this->createSubmission->execute(
+                        SubmissionData::forField(
+                            $field,
+                            $uuid,
+                            $resolver->toStorable($request, $sender),
+                            $sender,
+                            SubmissionStatus::Draft,
+                            $aggregate->getKey(),
+                        ),
                     );
 
-                    $this->createSubmission->execute(
-                        SubmissionData::forField($field, $uuid, $value, $sender, SubmissionStatus::Draft),
-                    );
+                    if ($resolver instanceof AttachesToSubmission) {
+                        $resolver->attach($submission, $request, $sender);
+                    }
                 })
                 ->count();
         });

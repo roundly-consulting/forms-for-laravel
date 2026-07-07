@@ -23,7 +23,9 @@ use RoundlyConsulting\Forms\DataTransferObjects\SubmissionResult;
 use RoundlyConsulting\Forms\FormBuilder;
 use RoundlyConsulting\Forms\Models\Field;
 use RoundlyConsulting\Forms\Models\Form;
+use RoundlyConsulting\Forms\Models\FormSubmission;
 use RoundlyConsulting\Forms\Models\Submission;
+use RoundlyConsulting\Forms\PendingSubmissionReview;
 use RoundlyConsulting\Forms\Submissions\SubmissionQuery;
 use RoundlyConsulting\Forms\Testing\FormsFake;
 use RoundlyConsulting\Forms\UpdateFormBuilder;
@@ -117,6 +119,15 @@ class FormsService
     public function submissions(Form $form): SubmissionQuery
     {
         return new SubmissionQuery($form);
+    }
+
+    /**
+     * Open a fluent review over a whole submission, routed through the approvals
+     * engine. Requires `forms.approvals.enabled`.
+     */
+    public function review(FormSubmission $submission): PendingSubmissionReview
+    {
+        return new PendingSubmissionReview($submission);
     }
 
     /** @param  array<array-key, mixed>  $value */

@@ -16,6 +16,7 @@ final class CreateSubmissionAction
 
         $submission = new $model([
             'uuid' => $data->uuid,
+            'form_submission_id' => $data->formSubmissionId,
             'sender_id' => $data->senderId,
             'sender_type' => $data->senderType,
             'form_id' => $data->formId,

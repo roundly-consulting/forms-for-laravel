@@ -20,6 +20,7 @@ final readonly class SubmissionData
         public int $fieldId,
         public array $value,
         public ?SubmissionStatus $status = null,
+        public ?int $formSubmissionId = null,
     ) {}
 
     /** @param  array<array-key, mixed>  $value */
@@ -29,6 +30,7 @@ final readonly class SubmissionData
         array $value,
         ?Model $sender = null,
         ?SubmissionStatus $status = null,
+        ?int $formSubmissionId = null,
     ): self {
         $senderKey = $sender?->getKey();
 
@@ -41,6 +43,7 @@ final readonly class SubmissionData
             fieldId: $field->getKey(),
             value: $value,
             status: $status,
+            formSubmissionId: $formSubmissionId,
         );
     }
 }

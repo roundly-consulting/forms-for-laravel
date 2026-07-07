@@ -10,7 +10,9 @@ use RoundlyConsulting\Forms\DataTransferObjects\SubmissionResult;
 use RoundlyConsulting\Forms\FormBuilder;
 use RoundlyConsulting\Forms\Models\Field;
 use RoundlyConsulting\Forms\Models\Form;
+use RoundlyConsulting\Forms\Models\FormSubmission;
 use RoundlyConsulting\Forms\Models\Submission;
+use RoundlyConsulting\Forms\PendingSubmissionReview;
 use RoundlyConsulting\Forms\Services\FormsService;
 use RoundlyConsulting\Forms\Submissions\SubmissionQuery;
 use RoundlyConsulting\Forms\UpdateFormBuilder;
@@ -27,6 +29,7 @@ use RoundlyConsulting\Forms\UpdateFormBuilder;
  * @method static SubmissionResult draft(Form $form, \Illuminate\Http\Request $request, ?\Illuminate\Database\Eloquent\Model $sender = null, ?string $uuid = null)
  * @method static SubmissionResult finalize(string $uuid)
  * @method static SubmissionQuery submissions(Form $form)
+ * @method static PendingSubmissionReview review(FormSubmission $submission)
  * @method static Submission createSubmission(Field $field, array<array-key, mixed> $value, ?\Illuminate\Database\Eloquent\Model $sender = null, ?string $uuid = null)
  * @method static \RoundlyConsulting\Forms\Testing\FormsFake fake()
  *

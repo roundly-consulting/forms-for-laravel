@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace RoundlyConsulting\Forms\Models;
 
 use Carbon\CarbonInterface;
+use DateTimeInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
+use RoundlyConsulting\Attributes\Enums\AttributeType;
 use RoundlyConsulting\Forms\Autofill\Autofill;
 use RoundlyConsulting\Forms\Database\Factories\FieldFactory;
 use RoundlyConsulting\Forms\Events\FieldCreated;
@@ -139,6 +142,57 @@ class Field extends Model
             'filled' => filled($actual),
             'empty' => blank($actual),
             default => $actual == $expected,
+        };
+    }
+
+    /**
+     * The attributes {@see AttributeType} this field's stored value maps to,
+     * driven by the `forms.field_types` map. Unmapped field types fall back to
+     * a plain string, preserving the historical raw-value behaviour.
+     */
+    public function attributeType(): AttributeType
+    {
+        /** @var array<string, string> $map */
+        $map = config('forms.field_types', []);
+
+        $mapped = $map[$this->type] ?? null;
+
+        if (is_string($mapped)) {
+            return AttributeType::tryFrom($mapped) ?? AttributeType::String_;
+        }
+
+        return AttributeType::String_;
+    }
+
+    /**
+     * Cast a raw stored value to the real PHP type mapped from this field, using
+     * attributes-for-laravel as the type system for the common string-column
+     * case and a defensive cast for already-typed JSON values.
+     */
+    public function castStoredValue(mixed $raw): mixed
+    {
+        if ($raw === null) {
+            return null;
+        }
+
+        $type = $this->attributeType();
+
+        if ($type === AttributeType::String_) {
+            return $raw;
+        }
+
+        if (is_string($raw)) {
+            return $type->fromStorage($raw);
+        }
+
+        return match ($type) {
+            AttributeType::Array_ => (array) $raw,
+            AttributeType::Boolean => (bool) $raw,
+            AttributeType::Integer => (int) $raw,
+            AttributeType::Float_ => (float) $raw,
+            AttributeType::DateTime => $raw instanceof DateTimeInterface
+                ? Carbon::instance($raw)->toImmutable()
+                : $raw,
         };
     }
 

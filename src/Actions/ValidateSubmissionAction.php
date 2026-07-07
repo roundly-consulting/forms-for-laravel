@@ -11,11 +11,17 @@ use RoundlyConsulting\Forms\Models\Form;
 
 final class ValidateSubmissionAction
 {
+    public function __construct(
+        private readonly ValidateFieldTypesAction $validateFieldTypes = new ValidateFieldTypesAction,
+    ) {}
+
     /**
      * Build a validator from each field's rules and return the validated data.
      *
      * Fields hidden by their conditions are skipped entirely. A field whose
      * condition is met keeps its rules (including a conditional `required`).
+     * After Laravel's own rules pass, each submitted value is checked against
+     * the attributes type derived from its field definition.
      *
      * @return array<string, mixed>
      */
@@ -40,6 +46,8 @@ final class ValidateSubmissionAction
 
         /** @var array<string, mixed> $validated */
         $validated = $validator->validate();
+
+        $this->validateFieldTypes->execute($form, $request);
 
         return $validated;
     }
