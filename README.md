@@ -17,6 +17,23 @@ can swap for your own.
 - PHP 8.4+
 - Laravel 12 or 13
 
+## Integrates with
+
+Forms builds on other roundly-consulting packages (installed automatically as dependencies):
+
+- **[enums-for-laravel](https://github.com/roundly-consulting/enums-for-laravel)** — `SubmissionStatus`
+  gains `values()`/`options()`/`validationRule()`/`readable()` and case lookups for status filters and UIs.
+- **[attributes-for-laravel](https://github.com/roundly-consulting/attributes-for-laravel)** — a typed
+  value layer: each field's `type` maps to an `AttributeType`, so stored values read back as real PHP
+  types (number → `int`, checkbox → `bool`, date → `CarbonImmutable`, multiselect → `array`) and are
+  type-checked at validation time.
+- **[media-library-for-laravel](https://github.com/roundly-consulting/media-library-for-laravel)** —
+  `file`/`image` fields store their upload as media on the submission row (image variants, non-image
+  passthrough, private signed streaming) instead of a bare disk path.
+- **[approvals-for-laravel](https://github.com/roundly-consulting/approvals-for-laravel)** — a whole
+  submission (the `FormSubmission` aggregate) can be routed through the approvals engine for
+  multi-approver sign-off, mirroring the decision back onto the submission status.
+
 ## Installation
 
 ```bash
@@ -55,19 +72,41 @@ return [
         'group' => \RoundlyConsulting\Forms\Models\Group::class,
         'field' => \RoundlyConsulting\Forms\Models\Field::class,
         'submission' => \RoundlyConsulting\Forms\Models\Submission::class,
+        'form_submission' => \RoundlyConsulting\Forms\Models\FormSubmission::class,
     ],
 
     // Map a field `type` to the resolver that reads/writes its value.
     // `default` is used for any type without an explicit mapping.
     'fields' => [
         'default' => \RoundlyConsulting\Forms\Resolvers\DefaultResolver::class,
-        'file' => \RoundlyConsulting\Forms\Resolvers\FileResolver::class,
+        'file' => \RoundlyConsulting\Forms\Resolvers\MediaFileResolver::class,
+        'image' => \RoundlyConsulting\Forms\Resolvers\MediaFileResolver::class,
     ],
 
-    // Filesystem settings used by the FileResolver.
-    'file' => [
-        'disk' => env('FORMS_FILE_DISK', config('filesystems.default', 'local')),
-        'directory' => env('FORMS_FILE_DIRECTORY', 'form-uploads'),
+    // Map a field `type` to the attributes AttributeType used to cast stored
+    // values and type-check submissions. Unlisted types read back as strings.
+    'field_types' => [
+        'number' => 'integer',
+        'checkbox' => 'boolean',
+        'date' => 'datetime',
+        'multiselect' => 'array',
+        // ...
+    ],
+
+    // Media settings for file/image fields (backed by media-library-for-laravel).
+    'media' => [
+        'bucket' => 'attachment',
+        'visibility' => 'private',
+        'disk' => env('FORMS_MEDIA_DISK'),
+        'accepted_mime_types' => null,
+        'max_file_size' => null,
+        'responsive_widths' => null,
+        'temporary_url_lifetime' => null,
+    ],
+
+    // Submission review via approvals-for-laravel. Disabled by default.
+    'approvals' => [
+        'enabled' => env('FORMS_APPROVALS_ENABLED', false),
     ],
 
     // Forms defined declaratively and synced to the DB with `php artisan forms:sync`.
@@ -80,11 +119,19 @@ return [
 | `models.form` | `class-string` | `Models\Form` | Model used for forms. |
 | `models.group` | `class-string` | `Models\Group` | Model used for groups. |
 | `models.field` | `class-string` | `Models\Field` | Model used for fields. |
-| `models.submission` | `class-string` | `Models\Submission` | Model used for submissions. |
+| `models.submission` | `class-string` | `Models\Submission` | Model used for per-field submission rows. |
+| `models.form_submission` | `class-string` | `Models\FormSubmission` | Aggregate model grouping a submission's rows (the approvals subject). |
 | `fields.default` | `class-string` | `Resolvers\DefaultResolver` | Resolver used for any field type without a specific mapping. |
-| `fields.file` | `class-string` | `Resolvers\FileResolver` | Resolver for `file` fields; stores the upload on a disk. |
-| `file.disk` | `string` | app default disk (`FORMS_FILE_DISK`) | Disk uploaded files are stored on. |
-| `file.directory` | `string` | `form-uploads` (`FORMS_FILE_DIRECTORY`) | Directory within the disk. |
+| `fields.file` / `fields.image` | `class-string` | `Resolvers\MediaFileResolver` | Media-backed resolver; stores the upload as media on the submission row. |
+| `field_types` | `array<string,string>` | see config | Maps a field `type` to an `AttributeType` for typed reads + validation. |
+| `media.bucket` | `string` | `attachment` | Media bucket the submission row registers uploads into. |
+| `media.visibility` | `string` | `private` | `private` (signed streaming) or `public`. |
+| `media.disk` | `?string` | media default (`FORMS_MEDIA_DISK`) | Disk uploads are stored on. |
+| `media.accepted_mime_types` | `?array` | `null` | Restrict accepted mime types (null = open). |
+| `media.max_file_size` | `?int` | `null` | Max upload size in bytes (null = media default). |
+| `media.responsive_widths` | `?array` | `null` | Responsive image widths (null = media default ladder). |
+| `media.temporary_url_lifetime` | `?int` | `null` | Signed URL lifetime in minutes (null = media default). |
+| `approvals.enabled` | `bool` | `false` (`FORMS_APPROVALS_ENABLED`) | Enable routing submissions through the approvals engine. |
 | `definitions` | `array` | `[]` | Declarative form definitions synced by `forms:sync`. |
 
 ## Usage
@@ -291,19 +338,71 @@ Forms::update('contact')
     ->save();
 ```
 
-### File uploads
+### Typed field values
 
-Map a field to the `file` type and the bundled `FileResolver` stores the upload on the
-configured disk and persists the stored path as the submission value:
+Each field `type` maps to an attributes `AttributeType` (see `forms.field_types`), so stored
+values read back as real PHP types instead of raw strings, and submitted values are type-checked
+during validation:
+
+```php
+$submission->typedValue();               // 42 (int) for a `number` field, true (bool) for `checkbox`
+
+Forms::submissions($form)->first()->values;
+// ['age' => 42, 'subscribed' => true, 'born' => CarbonImmutable, 'tags' => ['a', 'b']]
+```
+
+A value that doesn't satisfy its field's type raises
+`RoundlyConsulting\Forms\Exceptions\InvalidFieldValueException` during `Forms::validate()`
+(and on finalize). Unlisted field types keep the historical free-form string behaviour.
+
+### File uploads (media)
+
+Map a field to the `file` or `image` type and the `MediaFileResolver` attaches the upload as
+**media** on the submission row — image variants for images, passthrough for other files, served
+back via signed/temporary URLs (private by default):
 
 ```php
 $g->field('passport', 'Passport')->file();
 
-// read back the path / public URL:
+// the submission row is the media owner:
+$row = Forms::find('kyc')->fields->firstWhere('key', 'passport')->submissions->first();
+$row->attachments();               // Collection<Media>
+$row->attachmentUrl();             // base URL of the first attachment
+$row->attachmentTemporaryUrl();    // short-lived signed URL
+
+// or through the resolver:
 $resolver = Forms::find('kyc')->fields->firstWhere('key', 'passport')->resolver();
-$resolver->fromStorage(); // 'form-uploads/abc.pdf'
-$resolver->url();         // Storage::disk(...)->url($path)
+$resolver->fromStorage();          // the stored media UUID
+$resolver->url();                  // the media URL
 ```
+
+### Submission review (approvals)
+
+Enable `forms.approvals.enabled` and route a whole submission — the `FormSubmission` aggregate —
+through the approvals engine for multi-approver sign-off. The decision is mirrored back onto the
+submission status automatically:
+
+```php
+use RoundlyConsulting\Approvals\Enums\ApprovalRule;
+use RoundlyConsulting\Forms\Models\FormSubmission;
+
+$submission = FormSubmission::query()->where('uuid', $uuid)->first();
+
+Forms::review($submission)
+    ->requiring([$lead, $qa, $pm])
+    ->quorum(2)                    // or ->unanimous(), ->any(), ->weighted($threshold)
+    ->open();                      // submission status -> Pending
+
+$lead->approve($submission);       // decisions flow into the open request
+$qa->approve($submission);         // quorum met -> status Approved, SubmissionApproved fired
+
+$submission->isApproved();         // true
+$submission->isPendingApproval();  // false
+```
+
+Approvals fire `SubmissionApproved` / `SubmissionRejected` / `SubmissionStatusChanged`. A
+rejection carries the rejecting actor. With reviews disabled (the default), submissions keep the
+plain submit/finalize lifecycle.
 
 ### The HasForms trait
 
@@ -382,6 +481,9 @@ Lookups throw package-specific exceptions, all extending
 - `UnresolvableFieldException` — no resolver is registered for a field's type.
 - `FormSubmissionClosedException` — submission attempted on a non-public or expired form.
 - `DraftNotFoundException` — `finalize()` called with an unknown draft uuid.
+- `InvalidFieldValueException` — a submitted value fails its field's mapped type check.
+- `ReviewsDisabledException` — `Forms::review()` used while `forms.approvals.enabled` is false.
+- `SubmissionNotReviewableException` — a review opened on a draft submission.
 
 Messages are translatable via the `forms::messages` namespace.
 
@@ -396,16 +498,19 @@ use RoundlyConsulting\Forms\Models\Form;
 $openForms = Form::query()->public()->active()->get();
 ```
 
-All four models use soft deletes — deleting a form keeps its rows and submissions in the
+All models use soft deletes — deleting a form keeps its rows and submissions in the
 database (recoverable with `restore()` / queryable with `withTrashed()`). Deletes are not
 cascaded, so soft-deleting a form leaves its groups, fields, and submissions intact.
 
 ### Custom field resolvers
 
 A resolver controls how a field's value is read from the request (`toStorable`) and read back
-from storage (`fromStorage`). The package ships `DefaultResolver` and `FileResolver` (see
-**File uploads** above). Implement `RoundlyConsulting\Forms\Resolvers\Resolver` and map it
-to a field `type` in `config/forms.php`:
+from storage (`fromStorage`). The package ships `DefaultResolver` and `MediaFileResolver` (see
+**File uploads** above). A resolver that needs the persisted submission row before it can store
+its value (like the media resolver) additionally implements
+`RoundlyConsulting\Forms\Resolvers\AttachesToSubmission`, whose `attach()` runs after the row is
+created. Implement `RoundlyConsulting\Forms\Resolvers\Resolver` and map it to a field `type` in
+`config/forms.php`:
 
 ```php
 use Illuminate\Database\Eloquent\Model;
