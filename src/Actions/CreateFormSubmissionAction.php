@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use RoundlyConsulting\Forms\Enums\SubmissionStatus;
 use RoundlyConsulting\Forms\Models\Form;
 use RoundlyConsulting\Forms\Models\FormSubmission;
+use RoundlyConsulting\Forms\Support\FormSubmissionModel;
 
 /**
  * Creates (or resumes) the {@see FormSubmission} aggregate that groups the
@@ -18,8 +19,7 @@ final class CreateFormSubmissionAction
 {
     public function execute(Form $form, string $uuid, ?Model $sender = null, SubmissionStatus $status = SubmissionStatus::Final): FormSubmission
     {
-        /** @var class-string<FormSubmission> $model */
-        $model = config('forms.models.form_submission', FormSubmission::class);
+        $model = FormSubmissionModel::class();
 
         $senderKey = $sender?->getKey();
 

@@ -11,6 +11,7 @@ use RoundlyConsulting\Forms\DataTransferObjects\SubmissionResult;
 use RoundlyConsulting\Forms\Facades\Forms;
 use RoundlyConsulting\Forms\Models\Form;
 use RoundlyConsulting\Forms\Models\Submission;
+use RoundlyConsulting\Forms\Support\SubmissionModel;
 
 /**
  * Add to any user/sender model to expose its form submissions and a shortcut
@@ -23,10 +24,7 @@ trait HasForms
     /** @return MorphMany<Submission, $this> */
     public function formSubmissions(): MorphMany
     {
-        /** @var class-string<Submission> $submission */
-        $submission = config('forms.models.submission', Submission::class);
-
-        return $this->morphMany($submission, 'sender');
+        return $this->morphMany(SubmissionModel::class(), 'sender');
     }
 
     public function submitTo(Form $form, Request $request, bool $bypassClosed = false): SubmissionResult

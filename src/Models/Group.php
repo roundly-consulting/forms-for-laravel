@@ -15,6 +15,8 @@ use RoundlyConsulting\Forms\Database\Factories\GroupFactory;
 use RoundlyConsulting\Forms\Events\GroupCreated;
 use RoundlyConsulting\Forms\Events\GroupDeleted;
 use RoundlyConsulting\Forms\Events\GroupUpdated;
+use RoundlyConsulting\Forms\Support\FieldModel;
+use RoundlyConsulting\Forms\Support\FormModel;
 
 /**
  * @property int $id
@@ -54,19 +56,13 @@ class Group extends Model
     /** @return BelongsTo<Form, $this> */
     public function form(): BelongsTo
     {
-        /** @var class-string<Form> $form */
-        $form = config('forms.models.form', Form::class);
-
-        return $this->belongsTo($form);
+        return $this->belongsTo(FormModel::class(), 'form_id');
     }
 
     /** @return HasMany<Field, $this> */
     public function fields(): HasMany
     {
-        /** @var class-string<Field> $field */
-        $field = config('forms.models.field', Field::class);
-
-        return $this->hasMany($field, 'group_id');
+        return $this->hasMany(FieldModel::class(), 'group_id');
     }
 
     protected static function newFactory(): GroupFactory

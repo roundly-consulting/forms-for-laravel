@@ -21,6 +21,9 @@ use RoundlyConsulting\Forms\Events\FieldDeleted;
 use RoundlyConsulting\Forms\Events\FieldUpdated;
 use RoundlyConsulting\Forms\Exceptions\UnresolvableFieldException;
 use RoundlyConsulting\Forms\Resolvers\Resolver;
+use RoundlyConsulting\Forms\Support\FormModel;
+use RoundlyConsulting\Forms\Support\GroupModel;
+use RoundlyConsulting\Forms\Support\SubmissionModel;
 
 /**
  * @property int $id
@@ -222,28 +225,19 @@ class Field extends Model
     /** @return BelongsTo<Form, $this> */
     public function form(): BelongsTo
     {
-        /** @var class-string<Form> $form */
-        $form = config('forms.models.form', Form::class);
-
-        return $this->belongsTo($form);
+        return $this->belongsTo(FormModel::class(), 'form_id');
     }
 
     /** @return BelongsTo<Group, $this> */
     public function group(): BelongsTo
     {
-        /** @var class-string<Group> $group */
-        $group = config('forms.models.group', Group::class);
-
-        return $this->belongsTo($group);
+        return $this->belongsTo(GroupModel::class(), 'group_id');
     }
 
     /** @return HasMany<Submission, $this> */
     public function submissions(): HasMany
     {
-        /** @var class-string<Submission> $submission */
-        $submission = config('forms.models.submission', Submission::class);
-
-        return $this->hasMany($submission, 'field_id');
+        return $this->hasMany(SubmissionModel::class(), 'field_id');
     }
 
     public function hasOptions(): bool

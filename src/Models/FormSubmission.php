@@ -16,6 +16,8 @@ use RoundlyConsulting\Approvals\Interfaces\RequiresApprovalInterface;
 use RoundlyConsulting\Approvals\Traits\RequiresApproval;
 use RoundlyConsulting\Forms\Database\Factories\FormSubmissionFactory;
 use RoundlyConsulting\Forms\Enums\SubmissionStatus;
+use RoundlyConsulting\Forms\Support\FormModel;
+use RoundlyConsulting\Forms\Support\SubmissionModel;
 
 /**
  * Aggregate representing one whole submission: the parent row that groups the
@@ -93,19 +95,13 @@ class FormSubmission extends Model implements RequiresApprovalInterface
     /** @return BelongsTo<Form, $this> */
     public function form(): BelongsTo
     {
-        /** @var class-string<Form> $form */
-        $form = config('forms.models.form', Form::class);
-
-        return $this->belongsTo($form);
+        return $this->belongsTo(FormModel::class(), 'form_id');
     }
 
     /** @return HasMany<Submission, $this> */
     public function submissions(): HasMany
     {
-        /** @var class-string<Submission> $submission */
-        $submission = config('forms.models.submission', Submission::class);
-
-        return $this->hasMany($submission, 'form_submission_id');
+        return $this->hasMany(SubmissionModel::class(), 'form_submission_id');
     }
 
     protected static function newFactory(): FormSubmissionFactory

@@ -14,6 +14,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use RoundlyConsulting\Forms\Concerns\HasSubmissionMedia;
 use RoundlyConsulting\Forms\Database\Factories\SubmissionFactory;
 use RoundlyConsulting\Forms\Enums\SubmissionStatus;
+use RoundlyConsulting\Forms\Support\FieldModel;
+use RoundlyConsulting\Forms\Support\FormModel;
+use RoundlyConsulting\Forms\Support\FormSubmissionModel;
+use RoundlyConsulting\Forms\Support\GroupModel;
 use RoundlyConsulting\MediaLibrary\Contracts\HasMedia;
 
 /**
@@ -113,37 +117,25 @@ class Submission extends Model implements HasMedia
     /** @return BelongsTo<Field, $this> */
     public function field(): BelongsTo
     {
-        /** @var class-string<Field> $field */
-        $field = config('forms.models.field', Field::class);
-
-        return $this->belongsTo($field);
+        return $this->belongsTo(FieldModel::class(), 'field_id');
     }
 
     /** @return BelongsTo<Group, $this> */
     public function group(): BelongsTo
     {
-        /** @var class-string<Group> $group */
-        $group = config('forms.models.group', Group::class);
-
-        return $this->belongsTo($group);
+        return $this->belongsTo(GroupModel::class(), 'group_id');
     }
 
     /** @return BelongsTo<Form, $this> */
     public function form(): BelongsTo
     {
-        /** @var class-string<Form> $form */
-        $form = config('forms.models.form', Form::class);
-
-        return $this->belongsTo($form);
+        return $this->belongsTo(FormModel::class(), 'form_id');
     }
 
     /** @return BelongsTo<FormSubmission, $this> */
     public function formSubmission(): BelongsTo
     {
-        /** @var class-string<FormSubmission> $formSubmission */
-        $formSubmission = config('forms.models.form_submission', FormSubmission::class);
-
-        return $this->belongsTo($formSubmission);
+        return $this->belongsTo(FormSubmissionModel::class(), 'form_submission_id');
     }
 
     protected static function newFactory(): SubmissionFactory

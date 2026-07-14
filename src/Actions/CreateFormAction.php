@@ -10,13 +10,15 @@ use RoundlyConsulting\Forms\DataTransferObjects\GroupDefinitionData;
 use RoundlyConsulting\Forms\Models\Field;
 use RoundlyConsulting\Forms\Models\Form;
 use RoundlyConsulting\Forms\Models\Group;
+use RoundlyConsulting\Forms\Support\FieldModel;
+use RoundlyConsulting\Forms\Support\FormModel;
+use RoundlyConsulting\Forms\Support\GroupModel;
 
 final class CreateFormAction
 {
     public function execute(FormDefinitionData $data): Form
     {
-        /** @var class-string<Form> $formModel */
-        $formModel = config('forms.models.form', Form::class);
+        $formModel = FormModel::class();
 
         return $formModel::query()->getConnection()->transaction(function () use ($data, $formModel): Form {
             /** @var Form $form */
@@ -37,8 +39,7 @@ final class CreateFormAction
 
     private function createGroup(Form $form, GroupDefinitionData $data, int $defaultOrder): Group
     {
-        /** @var class-string<Group> $groupModel */
-        $groupModel = config('forms.models.group', Group::class);
+        $groupModel = GroupModel::class();
 
         /** @var Group $group */
         $group = $groupModel::query()->create([
@@ -57,8 +58,7 @@ final class CreateFormAction
 
     private function createField(Form $form, Group $group, FieldDefinitionData $data, int $defaultOrder): Field
     {
-        /** @var class-string<Field> $fieldModel */
-        $fieldModel = config('forms.models.field', Field::class);
+        $fieldModel = FieldModel::class();
 
         /** @var Field $field */
         $field = $fieldModel::query()->create([

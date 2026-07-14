@@ -15,6 +15,8 @@ use RoundlyConsulting\Forms\Database\Factories\FormFactory;
 use RoundlyConsulting\Forms\Events\FormCreated;
 use RoundlyConsulting\Forms\Events\FormDeleted;
 use RoundlyConsulting\Forms\Events\FormUpdated;
+use RoundlyConsulting\Forms\Support\GroupModel;
+use RoundlyConsulting\Forms\Support\SubmissionModel;
 
 /**
  * @property int $id
@@ -102,19 +104,13 @@ class Form extends Model
     /** @return HasMany<Submission, $this> */
     public function submissions(): HasMany
     {
-        /** @var class-string<Submission> $submission */
-        $submission = config('forms.models.submission', Submission::class);
-
-        return $this->hasMany($submission, 'form_id');
+        return $this->hasMany(SubmissionModel::class(), 'form_id');
     }
 
     /** @return HasMany<Group, $this> */
     public function groups(): HasMany
     {
-        /** @var class-string<Group> $group */
-        $group = config('forms.models.group', Group::class);
-
-        return $this->hasMany($group, 'form_id');
+        return $this->hasMany(GroupModel::class(), 'form_id');
     }
 
     /** @return HasManyThrough<Field, Group, $this> */

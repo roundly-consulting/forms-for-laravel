@@ -13,6 +13,7 @@ use RoundlyConsulting\Forms\Exceptions\MultipleFormsFoundException;
 use RoundlyConsulting\Forms\Models\Field;
 use RoundlyConsulting\Forms\Models\Form;
 use RoundlyConsulting\Forms\Models\Group;
+use RoundlyConsulting\Forms\Support\FormModel;
 
 final class FindFormAction
 {
@@ -44,8 +45,7 @@ final class FindFormAction
     /** @return Builder<Form> */
     private function newFormsQuery(): Builder
     {
-        /** @var class-string<Form> $form */
-        $form = config('forms.models.form', Form::class);
+        $form = FormModel::class();
 
         return $form::query();
     }

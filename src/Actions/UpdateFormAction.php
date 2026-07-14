@@ -10,6 +10,9 @@ use RoundlyConsulting\Forms\DataTransferObjects\GroupDefinitionData;
 use RoundlyConsulting\Forms\Models\Field;
 use RoundlyConsulting\Forms\Models\Form;
 use RoundlyConsulting\Forms\Models\Group;
+use RoundlyConsulting\Forms\Support\FieldModel;
+use RoundlyConsulting\Forms\Support\FormModel;
+use RoundlyConsulting\Forms\Support\GroupModel;
 
 /**
  * Edits an existing form's structure by diffing the supplied definition against
@@ -21,8 +24,7 @@ final class UpdateFormAction
 {
     public function execute(FormDefinitionData $data): Form
     {
-        /** @var class-string<Form> $formModel */
-        $formModel = config('forms.models.form', Form::class);
+        $formModel = FormModel::class();
 
         /** @var Form $form */
         $form = $formModel::query()
@@ -56,8 +58,7 @@ final class UpdateFormAction
 
     private function syncGroup(Form $form, GroupDefinitionData $data, int $defaultOrder): Group
     {
-        /** @var class-string<Group> $groupModel */
-        $groupModel = config('forms.models.group', Group::class);
+        $groupModel = GroupModel::class();
 
         $order = $data->order !== 0 ? $data->order : $defaultOrder;
 
@@ -91,8 +92,7 @@ final class UpdateFormAction
 
     private function syncField(Form $form, Group $group, FieldDefinitionData $data, int $defaultOrder): Field
     {
-        /** @var class-string<Field> $fieldModel */
-        $fieldModel = config('forms.models.field', Field::class);
+        $fieldModel = FieldModel::class();
 
         $order = $data->order !== 0 ? $data->order : $defaultOrder;
 

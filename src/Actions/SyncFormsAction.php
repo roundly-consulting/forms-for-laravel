@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace RoundlyConsulting\Forms\Actions;
 
 use RoundlyConsulting\Forms\DataTransferObjects\FormDefinitionData;
-use RoundlyConsulting\Forms\Models\Form;
+use RoundlyConsulting\Forms\Support\FormModel;
 
 /**
  * Syncs declaratively-defined forms (from config or a passed list) into the
@@ -29,8 +29,7 @@ final class SyncFormsAction
             $definitions = config('forms.definitions', []);
         }
 
-        /** @var class-string<Form> $formModel */
-        $formModel = config('forms.models.form', Form::class);
+        $formModel = FormModel::class();
 
         $synced = [];
 

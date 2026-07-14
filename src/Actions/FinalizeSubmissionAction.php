@@ -11,6 +11,7 @@ use RoundlyConsulting\Forms\Enums\SubmissionStatus;
 use RoundlyConsulting\Forms\Events\FormSubmitted;
 use RoundlyConsulting\Forms\Exceptions\DraftNotFoundException;
 use RoundlyConsulting\Forms\Models\Submission;
+use RoundlyConsulting\Forms\Support\SubmissionModel;
 
 /**
  * Promotes a draft submission to a final one, running full validation against
@@ -24,8 +25,7 @@ final class FinalizeSubmissionAction
 
     public function execute(string $uuid): SubmissionResult
     {
-        /** @var class-string<Submission> $submissionModel */
-        $submissionModel = config('forms.models.submission', Submission::class);
+        $submissionModel = SubmissionModel::class();
 
         /** @var Collection<int, Submission> $drafts */
         $drafts = $submissionModel::query()

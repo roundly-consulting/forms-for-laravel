@@ -11,6 +11,7 @@ use Illuminate\Support\Collection;
 use RoundlyConsulting\Forms\DataTransferObjects\AssembledSubmission;
 use RoundlyConsulting\Forms\Models\Form;
 use RoundlyConsulting\Forms\Models\Submission;
+use RoundlyConsulting\Forms\Support\SubmissionModel;
 
 /**
  * Fluent reader that assembles raw per-field submission rows back into one
@@ -57,8 +58,7 @@ final class SubmissionQuery
     /** @return Collection<int, AssembledSubmission> */
     public function get(): Collection
     {
-        /** @var class-string<Submission> $submissionModel */
-        $submissionModel = config('forms.models.submission', Submission::class);
+        $submissionModel = SubmissionModel::class();
 
         /** @var EloquentCollection<int, Submission> $rows */
         $rows = $submissionModel::query()

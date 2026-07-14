@@ -6,13 +6,13 @@ namespace RoundlyConsulting\Forms\Actions;
 
 use RoundlyConsulting\Forms\DataTransferObjects\SubmissionData;
 use RoundlyConsulting\Forms\Models\Submission;
+use RoundlyConsulting\Forms\Support\SubmissionModel;
 
 final class CreateSubmissionAction
 {
     public function execute(SubmissionData $data): Submission
     {
-        /** @var class-string<Submission> $model */
-        $model = config('forms.models.submission', Submission::class);
+        $model = SubmissionModel::class();
 
         $submission = new $model([
             'uuid' => $data->uuid,

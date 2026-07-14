@@ -14,6 +14,7 @@ use RoundlyConsulting\Forms\Models\Field;
 use RoundlyConsulting\Forms\Models\Form;
 use RoundlyConsulting\Forms\Models\Submission;
 use RoundlyConsulting\Forms\Resolvers\AttachesToSubmission;
+use RoundlyConsulting\Forms\Support\SubmissionModel;
 
 /**
  * Saves a partial submission as a draft without running validation, so a
@@ -70,8 +71,7 @@ final class DraftSubmissionAction
 
     private function clearExistingDraft(string $uuid): void
     {
-        /** @var class-string<Submission> $submissionModel */
-        $submissionModel = config('forms.models.submission', Submission::class);
+        $submissionModel = SubmissionModel::class();
 
         $submissionModel::query()->draft()->where('uuid', $uuid)->forceDelete();
     }
