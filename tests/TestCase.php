@@ -38,20 +38,23 @@ abstract class TestCase extends Orchestra
         $app['config']->set('media.responsive.widths', [320, 640]);
     }
 
+    /**
+     * Migrations are publish-only — no provider auto-loads anything — so the suite
+     * runs them explicitly, in the same order a host gets them from the publish.
+     */
     protected function defineDatabaseMigrations(): void
     {
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
 
         // Media-library ships the `media` table submission attachments persist into.
-        $mediaPackage = dirname((string) (new ReflectionClass(MediaLibraryServiceProvider::class))->getFileName(), 2);
-        $this->loadMigrationsFrom($mediaPackage.'/database/migrations');
+        $this->loadMigrationsFrom($this->packagePath(MediaLibraryServiceProvider::class).'/database/migrations');
 
         // Attributes ships the tables its registry/casts persist into.
-        $attributesPackage = dirname((string) (new ReflectionClass(AttributesServiceProvider::class))->getFileName(), 2);
-        $this->loadMigrationsFrom($attributesPackage.'/database/migrations');
+        $this->loadMigrationsFrom($this->packagePath(AttributesServiceProvider::class).'/database/migrations');
 
-        // Approvals engine tables back the submission review flow.
-        $this->loadApprovalsSchema();
+        // Approvals engine tables back the submission review flow (a FormSubmission is
+        // an approvals subject).
+        $this->loadMigrationsFrom($this->packagePath(ApprovalsServiceProvider::class).'/database/migrations');
 
         // A sender table for exercising morph relations and the HasForms trait.
         Schema::create('submitters', function (Blueprint $table): void {
@@ -60,29 +63,9 @@ abstract class TestCase extends Orchestra
         });
     }
 
-    /**
-     * Run the approvals engine migrations in dependency order; their tables back
-     * the submission review flow (a FormSubmission is an approvals subject).
-     */
-    private function loadApprovalsSchema(): void
+    /** @param  class-string  $provider */
+    private function packagePath(string $provider): string
     {
-        $base = dirname((string) (new ReflectionClass(ApprovalsServiceProvider::class))->getFileName(), 2);
-
-        $migrations = [
-            'create_approvals_table',
-            'create_approval_requests_table',
-            'add_v11_columns_to_approvals_table',
-            'add_staging_to_approval_requests_table',
-            'create_approval_request_stages_table',
-            'create_approval_delegations_table',
-        ];
-
-        foreach ($migrations as $name) {
-            $migration = require "{$base}/database/migrations/{$name}.php";
-
-            if (is_object($migration) && method_exists($migration, 'up')) {
-                $migration->up();
-            }
-        }
+        return dirname((string) (new ReflectionClass($provider))->getFileName(), 2);
     }
 }
