@@ -65,6 +65,18 @@
             "type": "vcs",
             "url": "https://github.com/roundly-consulting/approvals-for-laravel",
             "no-api": true
+        },
+        {
+            "type": "path",
+            "url": "../package-toolkit-for-laravel*",
+            "options": {
+                "symlink": true
+            }
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/roundly-consulting/package-toolkit-for-laravel",
+            "no-api": true
         }
     ],
     "require": {
@@ -73,7 +85,8 @@
         "roundly-consulting/approvals-for-laravel": "@dev",
         "roundly-consulting/attributes-for-laravel": "@dev",
         "roundly-consulting/enums-for-laravel": "@dev",
-        "roundly-consulting/media-library-for-laravel": "@dev"
+        "roundly-consulting/media-library-for-laravel": "@dev",
+        "roundly-consulting/package-toolkit-for-laravel": "@dev"
     },
     "require-dev": {
         "larastan/larastan": "^3.0",
