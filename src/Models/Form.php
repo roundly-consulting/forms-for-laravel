@@ -105,7 +105,7 @@ class Form extends Model
         /** @var class-string<Submission> $submission */
         $submission = config('forms.models.submission', Submission::class);
 
-        return $this->hasMany($submission);
+        return $this->hasMany($submission, 'form_id');
     }
 
     /** @return HasMany<Group, $this> */
@@ -114,7 +114,7 @@ class Form extends Model
         /** @var class-string<Group> $group */
         $group = config('forms.models.group', Group::class);
 
-        return $this->hasMany($group);
+        return $this->hasMany($group, 'form_id');
     }
 
     /** @return HasManyThrough<Field, Group, $this> */

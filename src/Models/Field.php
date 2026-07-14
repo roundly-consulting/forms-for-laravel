@@ -243,7 +243,7 @@ class Field extends Model
         /** @var class-string<Submission> $submission */
         $submission = config('forms.models.submission', Submission::class);
 
-        return $this->hasMany($submission);
+        return $this->hasMany($submission, 'field_id');
     }
 
     public function hasOptions(): bool

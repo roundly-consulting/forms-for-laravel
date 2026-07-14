@@ -66,7 +66,7 @@ class Group extends Model
         /** @var class-string<Field> $field */
         $field = config('forms.models.field', Field::class);
 
-        return $this->hasMany($field);
+        return $this->hasMany($field, 'group_id');
     }
 
     protected static function newFactory(): GroupFactory
