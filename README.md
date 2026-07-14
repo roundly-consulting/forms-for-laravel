@@ -40,12 +40,19 @@ Forms builds on other roundly-consulting packages (installed automatically as de
 composer require roundly-consulting/forms-for-laravel
 ```
 
-Publish and run the migrations:
+Publish and run the migrations. The package's migrations are **not loaded automatically** —
+publishing them is what puts them in your `database/migrations`, and a bare `php artisan
+migrate` will not create the forms tables until you do:
 
 ```bash
 php artisan vendor:publish --tag="forms-migrations"
 php artisan migrate
 ```
+
+They publish in dependency order (forms → groups → fields → submissions → form submissions),
+so they run cleanly against an empty database and keep their foreign keys intact. This
+package builds on other roundly packages, so publish and migrate theirs too
+(`approvals-migrations`, `attributes-migrations`, `media-migrations`).
 
 Optionally publish the config file:
 
