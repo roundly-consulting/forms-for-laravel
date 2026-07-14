@@ -4,11 +4,12 @@ parameters:
         - src
         - database
         - config
-        - tests
-    excludePaths:
-        # Exercises Pest's dynamic $this/trait binding and custom expectation
-        # matchers, which static analysis cannot model.
-        - tests/Feature/FormsTestingHelpersTest.php
+        # Only the host-model fixtures are analysed (the fleet norm): inside a Pest
+        # closure `$this` binds to TestCall for static analysis, so `$this->artisan()`
+        # and per-test properties cannot type-check either way. The fixtures — which
+        # apply the package traits and back the `forms.models` swap — stay covered.
+        - tests/testable
+        - tests/TestCase.php
     checkOctaneCompatibility: true
     checkModelProperties: true
     configDirectories:
