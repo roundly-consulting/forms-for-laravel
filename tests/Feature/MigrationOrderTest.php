@@ -2,90 +2,77 @@
 
 declare(strict_types=1);
 
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\ServiceProvider;
 use RoundlyConsulting\Forms\FormsServiceProvider;
+use RoundlyConsulting\PackageToolkit\Enums\DatabaseDriver;
+use RoundlyConsulting\Testing\Database\DriverMatrix;
 
 /**
- * The package ships five CREATEs and three ALTERs, and every child table carries a
- * real foreign key (`groups`→`forms`, `fields`→`forms`+`groups`,
- * `submissions`→`forms`+`groups`+`fields`+`form_submissions`,
- * `form_submissions`→`forms`). Publishing preserves the source directory's order, so
- * that order has to be runnable end to end from an empty database: every table must
- * exist before anything references or alters it.
+ * Forms ships five CREATEs and three ALTERs, with eight foreign keys — the densest FK graph
+ * in the fleet outside shops. `forms` is the root; `groups`, `fields`, `submissions` and
+ * `form_submissions` all constrain onto it, `submissions` additionally onto `groups` and
+ * `fields`, and an ALTER adds `submissions.form_submission_id -> form_submissions`.
  *
- * SQLite happily creates a table referencing a missing parent (it only complains at
- * insert time), so these tests are the *committed* pin; the order was additionally
- * proved against a real PostgreSQL server, which rejects a dangling foreign key at
- * DDL time.
- *
- * These tests run the *published* files — under their published names, into a
- * database that starts empty — which is what a host actually does.
+ * Publishing preserves the source order, so that order has to be runnable end to end.
  */
-beforeEach(function (): void {
-    $this->publishedPath = sys_get_temp_dir().'/forms-migration-order-'.bin2hex(random_bytes(6));
-    $this->publishedDatabase = $this->publishedPath.'/database.sqlite';
+$migrations = __DIR__.'/../../database/migrations';
 
-    File::makeDirectory($this->publishedPath, recursive: true);
-    File::put($this->publishedDatabase, '');
-
-    foreach (ServiceProvider::pathsToPublish(FormsServiceProvider::class, 'forms-migrations') as $source => $target) {
-        File::copy($source, $this->publishedPath.'/'.basename((string) $target));
-    }
-
-    config()->set('database.connections.published', [
-        'driver' => 'sqlite',
-        'database' => $this->publishedDatabase,
-        'prefix' => '',
-        'foreign_key_constraints' => true,
-    ]);
+/**
+ * M — the structural pin. Five packages shipped uninstallable migration orders under green
+ * SQLite suites, because SQLite happily creates a table pointing at a missing parent and
+ * only complains at insert time. `foreignKeys: 8` pins the edge count so the check can never
+ * pass over an empty parse.
+ *
+ * M also pins the other, non-FK half `MigrationGraph` checks: that every `Schema::table()`
+ * ALTER sorts at or after the CREATE of the table it alters (approvals #2). Forms ships
+ * three ALTERs, so that half is doing real work here.
+ */
+it('creates every table before the migrations that reference or alter it', function () use ($migrations): void {
+    expect($migrations)->toHaveRunnableMigrationOrder(foreignKeys: 8);
 });
 
-afterEach(function (): void {
-    File::deleteDirectory($this->publishedPath);
+/**
+ * P — the publish-only guards. The fleet publishes migrations timestamped rather than
+ * auto-loading them; doing both runs both copies and dies on a duplicate table (bug #5, on
+ * three packages). `8` pins the file count so neither check can pass over an empty or
+ * relocated directory.
+ */
+it('never auto-loads its migrations — the host publishes them', function (): void {
+    expect(FormsServiceProvider::class)->toNotAutoLoadMigrations();
 });
 
-it('migrates the published files clean from an empty database', function (): void {
-    $schema = Schema::connection('published');
-
-    expect($schema->hasTable('forms'))->toBeFalse();
-
-    $this->artisan('migrate', [
-        '--database' => 'published',
-        '--path' => $this->publishedPath,
-        '--realpath' => true,
-    ])->assertExitCode(0);
-
-    expect($schema->hasTable('forms'))->toBeTrue()
-        ->and($schema->hasTable('groups'))->toBeTrue()
-        ->and($schema->hasTable('fields'))->toBeTrue()
-        ->and($schema->hasTable('submissions'))->toBeTrue()
-        ->and($schema->hasTable('form_submissions'))->toBeTrue();
-
-    // Every ALTER ran against a table that already existed.
-    expect($schema->hasColumns('fields', ['conditions', 'messages']))->toBeTrue()
-        ->and($schema->hasColumns('submissions', ['status', 'form_submission_id']))->toBeTrue();
+it('publishes its migrations timestamp-injected into the host', function (): void {
+    expect(FormsServiceProvider::class)->toPublishMigrationsTimestamped('forms-migrations', 8);
 });
 
-it('keeps every foreign key intact in the published schema', function (): void {
-    $this->artisan('migrate', [
-        '--database' => 'published',
-        '--path' => $this->publishedPath,
-        '--realpath' => true,
-    ])->assertExitCode(0);
+/**
+ * R — the behavioural half, on an engine that can actually refuse. Gated on reachability so
+ * it skips *visibly* off the pgsql leg rather than passing vacuously.
+ *
+ * `migrations: 8` pins the count, and the assertion fails hard if a set "applies cleanly"
+ * while creating no tables — an empty `up()` would otherwise pass and prove nothing.
+ */
+it('applies the published order cleanly on postgres', function () use ($migrations): void {
+    expect($migrations)->toApplyOnConnection('pgsql', migrations: 8);
+})->skip(fn (): bool => ! test()->connectionAvailable('pgsql'), 'pgsql connection not available');
 
-    $schema = Schema::connection('published');
-
-    $references = static fn (string $table): array => array_map(
-        static fn (array $key): string => (string) $key['foreign_table'],
-        $schema->getForeignKeys($table),
+/**
+ * The negative control. It fits here — unlike a 0-FK row, where reversing the file list
+ * leaves Postgres nothing to refuse and the control fails by design. Forms has eight real FK
+ * edges, so a reversed order puts children before parents and Postgres genuinely rejects it.
+ */
+it('is refused by postgres when the order is broken', function () use ($migrations): void {
+    expect($migrations)->toRejectBrokenOrderOnConnection(
+        fn (array $files): array => array_reverse($files),
+        'pgsql',
     );
+})->skip(fn (): bool => ! test()->connectionAvailable('pgsql'), 'pgsql connection not available');
 
-    // The CREATE order is load-bearing, not incidental: each child really does
-    // constrain onto the tables created before it.
-    expect($references('groups'))->toContain('forms')
-        ->and($references('fields'))->toContain('forms', 'groups')
-        ->and($references('form_submissions'))->toContain('forms')
-        ->and($references('submissions'))->toContain('forms', 'groups', 'fields', 'form_submissions');
+/**
+ * The driver-truth pin: the env-declared driver against what the connection itself answers.
+ * It makes a lying pgsql leg impossible — a base case decapitated by an un-parented
+ * `defineEnvironment()` override goes red here instead of quietly running SQLite and
+ * reporting itself green.
+ */
+it('runs on the driver the environment declared', function (): void {
+    expect(DatabaseDriver::current())->toBe(DatabaseDriver::from(DriverMatrix::driver()));
 });
