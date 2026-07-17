@@ -6,6 +6,7 @@ namespace RoundlyConsulting\Forms\Actions;
 
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use RoundlyConsulting\Forms\DataTransferObjects\SubmissionResult;
 use RoundlyConsulting\Forms\Enums\SubmissionStatus;
 use RoundlyConsulting\Forms\Events\FormSubmitted;
@@ -25,6 +26,20 @@ final class FinalizeSubmissionAction
 
     public function execute(string $uuid): SubmissionResult
     {
+        // `submissions.uuid` is a real uuid column, and a strict engine refuses to compare a
+        // malformed string against one: on Postgres `where uuid = 'missing-uuid'` raises
+        // `SQLSTATE[22P02] invalid input syntax for type uuid` from inside the query, before
+        // the isEmpty() check below can turn "no rows" into DraftNotFoundException. SQLite
+        // stores the column as text and compares anything, matching nothing, so the intended
+        // exception fired there and the bug was invisible.
+        //
+        // A malformed uuid cannot identify a draft, so it is *not found* — the same answer
+        // this method already gives for a well-formed uuid with no rows, and now the same
+        // answer on every engine.
+        if (! Str::isUuid($uuid)) {
+            throw DraftNotFoundException::forUuid($uuid);
+        }
+
         $submissionModel = SubmissionModel::class();
 
         /** @var Collection<int, Submission> $drafts */

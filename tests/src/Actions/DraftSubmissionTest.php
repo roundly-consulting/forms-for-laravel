@@ -77,10 +77,26 @@ it('rejects finalizing a draft that fails validation', function () {
     expect(Submission::query()->draft()->count())->toBe(2);
 });
 
-it('throws when finalizing an unknown draft', function () {
-    expect(fn () => Forms::finalize('missing-uuid'))
+/**
+ * Both shapes of "no such draft" must answer the same way on every engine.
+ *
+ * The malformed case is the one that shipped broken: `submissions.uuid` is a real uuid
+ * column, so Postgres refuses to compare 'missing-uuid' against it and raises
+ * `SQLSTATE[22P02] invalid input syntax for type uuid` from inside the query — a raw
+ * QueryException, not DraftNotFoundException, and never the documented exception a host
+ * catches. SQLite stores the column as text, compares happily, matches nothing, and the
+ * intended exception fired — which is exactly why 204 green tests never saw it.
+ *
+ * The well-formed-but-absent case is the control: it proves the guard did not simply
+ * swallow every lookup.
+ */
+it('throws when finalizing an unknown draft', function (string $uuid) {
+    expect(fn () => Forms::finalize($uuid))
         ->toThrow(DraftNotFoundException::class);
-});
+})->with([
+    'malformed id' => 'missing-uuid',
+    'well-formed but absent id' => '019f6eef-76b8-73b9-ab3c-78c1a64965a7',
+]);
 
 it('resumes a draft by reusing its uuid', function () {
     draftForm();
