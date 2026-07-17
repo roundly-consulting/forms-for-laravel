@@ -19,8 +19,12 @@ return new class extends Migration
             $table->string('help')->nullable();
             $table->string('type')->default('text');
             $table->string('autofill')->nullable();
+            // Deliberately `json`, not `jsonb`: this is a value => label map whose KEY ORDER
+            // is the select's display order (['sm' => 'Small', 'md' => 'Medium', ...]).
+            // Postgres `jsonb` sorts object keys by (length, bytes), which would silently
+            // reorder every author-defined dropdown. `json` preserves insertion order.
             $table->json('options')->nullable();
-            $table->json('validations')->nullable();
+            $table->jsonb('validations')->nullable();
             $table->integer('order')->default(0);
             $table->timestamps();
             $table->softDeletes();

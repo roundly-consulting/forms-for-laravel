@@ -11,8 +11,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('fields', function (Blueprint $table): void {
-            $table->json('conditions')->nullable()->after('validations');
-            $table->json('messages')->nullable()->after('conditions');
+            $table->jsonb('conditions')->nullable()->after('validations');
+            $table->jsonb('messages')->nullable()->after('conditions');
         });
     }
 

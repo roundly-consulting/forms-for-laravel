@@ -52,11 +52,18 @@ it('passes when the conditionally-required field is supplied', function () {
     expect($validated['shipping']['addr']['state'])->toBe('CA');
 });
 
+/**
+ * `toEqual` on the condition list: `conditions` is stored as `jsonb`, and while `jsonb`
+ * preserves the order of ARRAY elements (so the list itself is still pinned), it sorts the
+ * keys of each OBJECT inside it — `field`, `value`, `operator` by (length, bytes). Each
+ * condition is read by key (`$condition['field']`), never by position, so key order is not
+ * the contract. `isVisible()` below is what actually pins the semantics.
+ */
 it('stores conditions on the field and exposes visibility', function () {
     conditionalForm();
     $state = Field::query()->where('key', 'state')->sole();
 
-    expect($state->conditions)->toBe([
+    expect($state->conditions)->toEqual([
         ['field' => 'country', 'operator' => '=', 'value' => 'US'],
     ])
         ->and($state->isVisible(['shipping' => ['addr' => ['country' => 'US']]]))->toBeTrue()
