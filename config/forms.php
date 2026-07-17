@@ -18,6 +18,23 @@ return [
         'form_submission' => FormSubmission::class,
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Key Type
+    |--------------------------------------------------------------------------
+    |
+    | The key type used for the polymorphic sender columns on submissions and
+    | form_submissions. Use "uuid" or "ulid" when the models those columns point
+    | at use UUID/ULID primary keys, otherwise leave it as "bigint". Your morph
+    | targets must share one key type; set this to match. Any unrecognized value
+    | falls back to "bigint".
+    |
+    | Supported: "bigint", "uuid", "ulid"
+    |
+    */
+
+    'key_type' => env('FORMS_KEY_TYPE', 'bigint'),
+
     'fields' => [
         'default' => DefaultResolver::class,
         'file' => MediaFileResolver::class,
