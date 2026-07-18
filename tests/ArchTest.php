@@ -34,21 +34,20 @@ ArchPresets::strictTypes('RoundlyConsulting\Forms');
  *  - FormsService — the package's own FormsFake extends it, which is how `Forms::fake()`
  *    works. `final` here would break a feature this package ships.
  */
-ArchPresets::finalByDefault('RoundlyConsulting\Forms')
-    ->ignoring([
-        Form::class,
-        Group::class,
-        Field::class,
-        Submission::class,
-        FormSubmission::class,
-        FormResource::class,
-        GroupResource::class,
-        FieldResource::class,
-        DefaultResolver::class,
-        MediaFileResolver::class,
-        FormsException::class,
-        FormsService::class,
-    ]);
+ArchPresets::finalByDefault('RoundlyConsulting\Forms', [
+    Form::class,
+    Group::class,
+    Field::class,
+    Submission::class,
+    FormSubmission::class,
+    FormResource::class,
+    GroupResource::class,
+    FieldResource::class,
+    DefaultResolver::class,
+    MediaFileResolver::class,
+    FormsException::class,
+    FormsService::class,
+]);
 
 /**
  * The counter-weight, and the fleet's 7×-shipped fatal. Also pins that each `forms.models.*`
