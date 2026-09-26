@@ -83,18 +83,18 @@ final class FormsFake extends FormsService
         return $result;
     }
 
-    public function draft(Form $form, Request $request, ?Model $sender = null, ?string $uuid = null): SubmissionResult
+    public function draft(Form $form, Request $request, ?Model $sender = null, ?string $uuid = null, bool $bypassClosed = false): SubmissionResult
     {
-        $result = parent::draft($form, $request, $sender, $uuid);
+        $result = parent::draft($form, $request, $sender, $uuid, $bypassClosed);
 
         $this->drafted[] = ['form' => $form, 'result' => $result, 'sender' => $sender];
 
         return $result;
     }
 
-    public function finalize(string $uuid): SubmissionResult
+    public function finalize(string $uuid, bool $bypassClosed = false): SubmissionResult
     {
-        $result = parent::finalize($uuid);
+        $result = parent::finalize($uuid, $bypassClosed);
 
         $this->finalized[] = ['uuid' => $uuid, 'result' => $result];
 
@@ -115,9 +115,9 @@ final class FormsFake extends FormsService
     }
 
     /** @param  array<array-key, mixed>  $value */
-    public function createSubmission(Field $field, array $value, ?Model $sender = null, ?string $uuid = null): Submission
+    public function createSubmission(Field $field, array $value, ?Model $sender = null, ?string $uuid = null, bool $bypassClosed = false): Submission
     {
-        $submission = parent::createSubmission($field, $value, $sender, $uuid);
+        $submission = parent::createSubmission($field, $value, $sender, $uuid, $bypassClosed);
 
         $this->createdSubmissions[] = $submission;
 

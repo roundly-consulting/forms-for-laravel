@@ -26,11 +26,11 @@ use RoundlyConsulting\Forms\UpdateFormBuilder;
  * @method static array<string, mixed> validate(Form $form, \Illuminate\Http\Request $request)
  * @method static SubmissionResult submit(Form $form, \Illuminate\Http\Request $request, ?\Illuminate\Database\Eloquent\Model $sender = null, bool $bypassClosed = false)
  * @method static string storeSubmission(Form $form, \Illuminate\Http\Request $request, ?\Illuminate\Database\Eloquent\Model $sender = null, bool $bypassClosed = false)
- * @method static SubmissionResult draft(Form $form, \Illuminate\Http\Request $request, ?\Illuminate\Database\Eloquent\Model $sender = null, ?string $uuid = null)
- * @method static SubmissionResult finalize(string $uuid)
+ * @method static SubmissionResult draft(Form $form, \Illuminate\Http\Request $request, ?\Illuminate\Database\Eloquent\Model $sender = null, ?string $uuid = null, bool $bypassClosed = false)
+ * @method static SubmissionResult finalize(string $uuid, bool $bypassClosed = false)
  * @method static SubmissionQuery submissions(Form $form)
  * @method static PendingSubmissionReview review(FormSubmission $submission)
- * @method static Submission createSubmission(Field $field, array<array-key, mixed> $value, ?\Illuminate\Database\Eloquent\Model $sender = null, ?string $uuid = null)
+ * @method static Submission createSubmission(Field $field, array<array-key, mixed> $value, ?\Illuminate\Database\Eloquent\Model $sender = null, ?string $uuid = null, bool $bypassClosed = false)
  * @method static \RoundlyConsulting\Forms\Testing\FormsFake fake()
  *
  * @see FormsService

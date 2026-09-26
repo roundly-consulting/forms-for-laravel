@@ -106,14 +106,14 @@ class FormsService
         return $this->submit($form, $request, $sender, $bypassClosed)->uuid;
     }
 
-    public function draft(Form $form, Request $request, ?Model $sender = null, ?string $uuid = null): SubmissionResult
+    public function draft(Form $form, Request $request, ?Model $sender = null, ?string $uuid = null, bool $bypassClosed = false): SubmissionResult
     {
-        return $this->draftSubmission->execute($form, $request, $sender, $uuid);
+        return $this->draftSubmission->execute($form, $request, $sender, $uuid, $bypassClosed);
     }
 
-    public function finalize(string $uuid): SubmissionResult
+    public function finalize(string $uuid, bool $bypassClosed = false): SubmissionResult
     {
-        return $this->finalizeSubmission->execute($uuid);
+        return $this->finalizeSubmission->execute($uuid, $bypassClosed);
     }
 
     public function submissions(Form $form): SubmissionQuery
@@ -130,9 +130,18 @@ class FormsService
         return new PendingSubmissionReview($submission);
     }
 
-    /** @param  array<array-key, mixed>  $value */
-    public function createSubmission(Field $field, array $value, ?Model $sender = null, ?string $uuid = null): Submission
+    /**
+     * Write a single field row directly. The row carries no draft status, so it reads as a
+     * final submission — it obeys the closed-form rule unless `$bypassClosed` (imports, seeds).
+     *
+     * @param  array<array-key, mixed>  $value
+     */
+    public function createSubmission(Field $field, array $value, ?Model $sender = null, ?string $uuid = null, bool $bypassClosed = false): Submission
     {
+        if (! $bypassClosed) {
+            $field->form->ensureAcceptingSubmissions();
+        }
+
         return $this->createSubmissionAction->execute(
             SubmissionData::forField($field, $uuid ?: Str::orderedUuid()->toString(), $value, $sender),
         );

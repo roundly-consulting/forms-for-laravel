@@ -286,18 +286,22 @@ the facade) exposes the same API and can be resolved from the container directly
 
 #### Closed forms are rejected
 
-`submit()`/`storeSubmission()` reject submissions to a form that isn't accepting them — a
-non-public form, or one whose `expires_at` has passed — by throwing
-`RoundlyConsulting\Forms\Exceptions\FormSubmissionClosedException`. Pass `bypassClosed: true`
-for trusted internal/admin submissions:
+Every path to a final submission rejects a form that isn't accepting them — a non-public form,
+or one whose `expires_at` has passed — by throwing
+`RoundlyConsulting\Forms\Exceptions\FormSubmissionClosedException`: `submit()` /
+`storeSubmission()`, `draft()` (and `draftTo()`), `finalize()` — checked again at finalize time,
+so a draft saved while the form was open can't be finalized after it closes — and the raw
+`createSubmission()`. Pass `bypassClosed: true` for trusted internal/admin submissions:
 
 ```php
 Forms::submit($form, request(), $user, bypassClosed: true);
+Forms::draft($form, request(), $user, bypassClosed: true);
+Forms::finalize($uuid, bypassClosed: true);
 ```
 
-Two readable helpers back this: `$form->isExpired()` and `$form->isAcceptingSubmissions()`
-(public **and** not expired). `$field->isRequired()` reports whether a field carries a
-`required` rule.
+Three readable helpers back this: `$form->isExpired()`, `$form->isAcceptingSubmissions()`
+(public **and** not expired) and `$form->ensureAcceptingSubmissions()` (throws when it isn't).
+`$field->isRequired()` reports whether a field carries a `required` rule.
 
 ### Draft submissions (save & resume)
 
@@ -500,7 +504,8 @@ Lookups throw package-specific exceptions, all extending
 - `FormNotFoundException` — no form matches the key.
 - `MultipleFormsFoundException` — more than one form matches the key.
 - `UnresolvableFieldException` — no resolver is registered for a field's type.
-- `FormSubmissionClosedException` — submission attempted on a non-public or expired form.
+- `FormSubmissionClosedException` — submit, draft, finalize or `createSubmission()` attempted on
+  a non-public or expired form (without `bypassClosed: true`).
 - `DraftNotFoundException` — `finalize()` called with an unknown draft uuid, or `draft()` asked
   to resume a uuid that is not a draft of that form.
 - `InvalidFieldValueException` — a submitted value fails its field's mapped type check.

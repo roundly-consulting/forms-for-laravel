@@ -11,7 +11,6 @@ use RoundlyConsulting\Forms\DataTransferObjects\SubmissionData;
 use RoundlyConsulting\Forms\DataTransferObjects\SubmissionResult;
 use RoundlyConsulting\Forms\Enums\SubmissionStatus;
 use RoundlyConsulting\Forms\Events\FormSubmitted;
-use RoundlyConsulting\Forms\Exceptions\FormSubmissionClosedException;
 use RoundlyConsulting\Forms\Models\Field;
 use RoundlyConsulting\Forms\Models\Form;
 use RoundlyConsulting\Forms\Resolvers\AttachesToSubmission;
@@ -25,8 +24,8 @@ final class StoreSubmissionAction
 
     public function execute(Form $form, Request $request, ?Model $sender = null, bool $bypassClosed = false): SubmissionResult
     {
-        if (! $bypassClosed && ! $form->isAcceptingSubmissions()) {
-            throw FormSubmissionClosedException::forKey($form->key);
+        if (! $bypassClosed) {
+            $form->ensureAcceptingSubmissions();
         }
 
         $uuid = Str::orderedUuid()->toString();

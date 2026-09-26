@@ -11,6 +11,7 @@ use RoundlyConsulting\Forms\DataTransferObjects\SubmissionResult;
 use RoundlyConsulting\Forms\Enums\SubmissionStatus;
 use RoundlyConsulting\Forms\Events\FormSubmitted;
 use RoundlyConsulting\Forms\Exceptions\DraftNotFoundException;
+use RoundlyConsulting\Forms\Exceptions\FormSubmissionClosedException;
 use RoundlyConsulting\Forms\Models\Submission;
 use RoundlyConsulting\Forms\Support\SubmissionModel;
 
@@ -24,7 +25,12 @@ final class FinalizeSubmissionAction
         private readonly ValidateSubmissionAction $validateSubmission = new ValidateSubmissionAction,
     ) {}
 
-    public function execute(string $uuid): SubmissionResult
+    /**
+     * @throws FormSubmissionClosedException when the draft's form has closed since it was
+     *                                       saved, unless `$bypassClosed` — finalizing is a
+     *                                       submission and obeys the same rule as submit().
+     */
+    public function execute(string $uuid, bool $bypassClosed = false): SubmissionResult
     {
         // `submissions.uuid` is a real uuid column, and a strict engine refuses to compare a
         // malformed string against one: on Postgres `where uuid = 'missing-uuid'` raises
@@ -56,6 +62,10 @@ final class FinalizeSubmissionAction
         $first = $drafts->first();
         /** @var Submission $first */
         $form = $first->field->form;
+        if (! $bypassClosed) {
+            $form->ensureAcceptingSubmissions();
+        }
+
         $form->load(['groups.fields']);
 
         $request = $this->requestFromDrafts($drafts);

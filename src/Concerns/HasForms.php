@@ -32,8 +32,8 @@ trait HasForms
         return Forms::submit($form, $request, $this, $bypassClosed);
     }
 
-    public function draftTo(Form $form, Request $request, ?string $uuid = null): SubmissionResult
+    public function draftTo(Form $form, Request $request, ?string $uuid = null, bool $bypassClosed = false): SubmissionResult
     {
-        return Forms::draft($form, $request, $this, $uuid);
+        return Forms::draft($form, $request, $this, $uuid, $bypassClosed);
     }
 }

@@ -25,3 +25,9 @@ All notable changes to `forms-for-laravel` will be documented in this file.
   form's draft it deleted that draft's rows and moved its aggregate to the new form. Both — and
   a malformed uuid, which Postgres rejected mid-query — now throw `DraftNotFoundException` and
   leave the stored submission untouched.
+- A closed form (non-public or past `expires_at`) no longer accepts a final submission by any
+  path. Only `submit()` checked it: `draft()` + `finalize()` — and the raw `createSubmission()`,
+  whose rows read as final — went through on a closed form, and a draft saved while the form was
+  open could be finalized after it closed. `draft()`, `draftTo()`, `finalize()` and
+  `createSubmission()` now throw `FormSubmissionClosedException` (checked again at finalize time)
+  and accept `bypassClosed: true` like `submit()`. New `Form::ensureAcceptingSubmissions()`.

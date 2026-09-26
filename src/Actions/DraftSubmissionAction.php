@@ -11,6 +11,7 @@ use RoundlyConsulting\Forms\DataTransferObjects\SubmissionData;
 use RoundlyConsulting\Forms\DataTransferObjects\SubmissionResult;
 use RoundlyConsulting\Forms\Enums\SubmissionStatus;
 use RoundlyConsulting\Forms\Exceptions\DraftNotFoundException;
+use RoundlyConsulting\Forms\Exceptions\FormSubmissionClosedException;
 use RoundlyConsulting\Forms\Models\Field;
 use RoundlyConsulting\Forms\Models\Form;
 use RoundlyConsulting\Forms\Models\Submission;
@@ -29,8 +30,17 @@ final class DraftSubmissionAction
         private readonly CreateFormSubmissionAction $createFormSubmission = new CreateFormSubmissionAction,
     ) {}
 
-    public function execute(Form $form, Request $request, ?Model $sender = null, ?string $uuid = null): SubmissionResult
+    /**
+     * @throws FormSubmissionClosedException when the form is closed, unless `$bypassClosed`:
+     *                                       a draft is a submission in progress, so it obeys
+     *                                       the same rule as submit().
+     */
+    public function execute(Form $form, Request $request, ?Model $sender = null, ?string $uuid = null, bool $bypassClosed = false): SubmissionResult
     {
+        if (! $bypassClosed) {
+            $form->ensureAcceptingSubmissions();
+        }
+
         $resuming = $uuid !== null;
         $uuid ??= Str::orderedUuid()->toString();
 

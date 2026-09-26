@@ -15,6 +15,7 @@ use RoundlyConsulting\Forms\Database\Factories\FormFactory;
 use RoundlyConsulting\Forms\Events\FormCreated;
 use RoundlyConsulting\Forms\Events\FormDeleted;
 use RoundlyConsulting\Forms\Events\FormUpdated;
+use RoundlyConsulting\Forms\Exceptions\FormSubmissionClosedException;
 use RoundlyConsulting\Forms\Support\GroupModel;
 use RoundlyConsulting\Forms\Support\SubmissionModel;
 
@@ -99,6 +100,19 @@ class Form extends Model
     public function isAcceptingSubmissions(): bool
     {
         return $this->is_public && ! $this->isExpired();
+    }
+
+    /**
+     * The one closed-form rule every path to a final submission enforces — submit, draft,
+     * finalize and single-row creation alike.
+     *
+     * @throws FormSubmissionClosedException when the form is non-public or expired.
+     */
+    public function ensureAcceptingSubmissions(): void
+    {
+        if (! $this->isAcceptingSubmissions()) {
+            throw FormSubmissionClosedException::forKey($this->key);
+        }
     }
 
     /** @return HasMany<Submission, $this> */
