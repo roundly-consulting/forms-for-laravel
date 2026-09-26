@@ -77,10 +77,16 @@ return [
         // Visibility of stored uploads: 'private' (default, signed streaming) or 'public'.
         'visibility' => 'private',
 
-        // Disk for the submission media. null => the media-library default disk, which is
-        // 'public' out of the box — web-served under /storage once `storage:link` runs. Keep
-        // private uploads on a disk that is not web-served ('local', a private S3 disk).
+        // Disk for the submission media, whatever its visibility. null => chosen by visibility:
+        // private uploads go to 'private_disk' below, public ones to the media-library default
+        // disk ('public' out of the box).
         'disk' => env('FORMS_MEDIA_DISK'),
+
+        // Disk for PRIVATE uploads (originals and variants) when 'disk' is null. It must not be
+        // web-served — the media-library default 'public' disk is (under /storage once
+        // `storage:link` runs), which would make a private upload reachable without a signature.
+        // Laravel's 'local' disk (storage/app/private) is not; a private S3 disk works too.
+        'private_disk' => env('FORMS_MEDIA_PRIVATE_DISK', 'local'),
 
         // Restrict accepted mime types. null/[] => the media-library default (open).
         'accepted_mime_types' => null,

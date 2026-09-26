@@ -16,9 +16,7 @@ All notable changes to `forms-for-laravel` will be documented in this file.
   signed URLs. `attachmentUrl()`, `attachmentUrls()` and `MediaFileResolver::url()` asked
   media-library for the upload's public URL, which it refuses for private media — so on the
   default config each of them threw `MediaCannotBeStreamed`. They now go through the new
-  `resolveAttachmentUrl()` (public URL for public media, signed URL for private media). The
-  config and README also warn that the default media disk (`public`) is web-served, so private
-  uploads belong on a non-public disk.
+  `resolveAttachmentUrl()` (public URL for public media, signed URL for private media).
 - Resuming a draft (`Forms::draft(..., uuid: $uuid)`) now only accepts a draft of the same form.
   Given a finalized submission's uuid it flipped the aggregate back to `Draft` and wrote new draft
   rows next to the final ones (finalizing again left two final rows per field); given another
@@ -31,3 +29,12 @@ All notable changes to `forms-for-laravel` will be documented in this file.
   open could be finalized after it closed. `draft()`, `draftTo()`, `finalize()` and
   `createSubmission()` now throw `FormSubmissionClosedException` (checked again at finalize time)
   and accept `bypassClosed: true` like `submit()`. New `Form::ensureAcceptingSubmissions()`.
+
+### Security
+
+- Private uploads are now stored on a non-public disk by default: new `forms.media.private_disk`
+  (`FORMS_MEDIA_PRIVATE_DISK`, default `local`) holds private originals and their variants
+  whenever `forms.media.disk` is unset. They used to land on media-library's default `public`
+  disk — served under `/storage` once `storage:link` runs — so a private upload (a passport
+  scan, say) was reachable without its signed URL, although the trait promised a private disk.
+  The signed stream route serves them from the private disk.

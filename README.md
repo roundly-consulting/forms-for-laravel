@@ -108,6 +108,7 @@ return [
         'bucket' => 'attachment',
         'visibility' => 'private',
         'disk' => env('FORMS_MEDIA_DISK'),
+        'private_disk' => env('FORMS_MEDIA_PRIVATE_DISK', 'local'),
         'accepted_mime_types' => null,
         'max_file_size' => null,
         'responsive_widths' => null,
@@ -137,7 +138,8 @@ return [
 | `field_types` | `array<string,string>` | see config | Maps a field `type` to an `AttributeType` for typed reads + validation. |
 | `media.bucket` | `string` | `attachment` | Media bucket the submission row registers uploads into. |
 | `media.visibility` | `string` | `private` | `private` (only ever linked via signed URLs) or `public`. |
-| `media.disk` | `?string` | media default (`FORMS_MEDIA_DISK`) | Disk uploads are stored on. The media default is `public` (web-served) — use a non-public disk for private uploads. |
+| `media.disk` | `?string` | `null` (`FORMS_MEDIA_DISK`) | Disk every upload is stored on. `null` = by visibility: private → `media.private_disk`, public → media-library's default disk. |
+| `media.private_disk` | `string` | `local` (`FORMS_MEDIA_PRIVATE_DISK`) | Non-public disk for private uploads and their variants when `media.disk` is `null`. |
 | `media.accepted_mime_types` | `?array` | `null` | Restrict accepted mime types (null = open). |
 | `media.max_file_size` | `?int` | `null` | Max upload size in bytes (null = media default). |
 | `media.responsive_widths` | `?array` | `null` | Responsive image widths (null = media default ladder). |
@@ -395,11 +397,13 @@ $resolver->url();                  // same as attachmentUrl()
 
 A private upload is only ever linked through a short-lived signed URL — never a public one.
 
-> [!IMPORTANT]
-> Signed URLs protect the link, not the bytes. With `forms.media.disk` unset, uploads are stored
-> on media-library's default disk — `public` unless you changed `media.disk` — which
-> `php artisan storage:link` exposes under `/storage`. Store private uploads on a disk that is
-> not web-served, e.g. `FORMS_MEDIA_DISK=local` or a private S3 disk.
+Signed URLs protect the link, so the bytes must not be reachable any other way: with
+`forms.media.disk` unset, private uploads (and their variants) are stored on
+`forms.media.private_disk` — Laravel's `local` disk (`storage/app/private`) by default — never on
+media-library's default `public` disk, which `php artisan storage:link` exposes under `/storage`.
+Point `FORMS_MEDIA_PRIVATE_DISK` at another non-public disk (e.g. a private S3 disk) if you like;
+if you set `FORMS_MEDIA_DISK` yourself, that disk is used for every upload, so keep it non-public
+while uploads are private.
 
 ### Submission review (approvals)
 

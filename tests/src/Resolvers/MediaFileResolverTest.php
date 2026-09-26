@@ -16,6 +16,7 @@ use RoundlyConsulting\MediaLibrary\Contracts\HasMedia;
 
 beforeEach(function () {
     Storage::fake('public');
+    Storage::fake('local');
     config()->set('forms.media.visibility', 'public');
 
     $form = Form::factory()->public()->create(['key' => 'kyc']);

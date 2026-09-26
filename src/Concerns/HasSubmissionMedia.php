@@ -145,6 +145,13 @@ trait HasSubmissionMedia
 
         if (is_string($disk) && $disk !== '') {
             $bucket->useDisk($disk);
+        } elseif ($this->attachmentVisibility() === 'private') {
+            // A private upload must not land on media-library's default disk: that is the
+            // web-served `public` disk, where the file is reachable under /storage without the
+            // signed URL. Its variants follow it, whatever `media.variants_disk` says.
+            $privateDisk = $this->privateAttachmentDisk();
+
+            $bucket->useDisk($privateDisk)->storingVariantsOnDisk($privateDisk);
         }
 
         $widths = config('forms.media.responsive_widths');
@@ -154,6 +161,13 @@ trait HasSubmissionMedia
         );
 
         return $bucket;
+    }
+
+    private function privateAttachmentDisk(): string
+    {
+        $disk = config('forms.media.private_disk', 'local');
+
+        return is_string($disk) && $disk !== '' ? $disk : 'local';
     }
 
     private function temporaryUrlExpiry(): DateTimeInterface
