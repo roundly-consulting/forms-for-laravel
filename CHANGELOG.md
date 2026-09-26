@@ -19,3 +19,9 @@ All notable changes to `forms-for-laravel` will be documented in this file.
   `resolveAttachmentUrl()` (public URL for public media, signed URL for private media). The
   config and README also warn that the default media disk (`public`) is web-served, so private
   uploads belong on a non-public disk.
+- Resuming a draft (`Forms::draft(..., uuid: $uuid)`) now only accepts a draft of the same form.
+  Given a finalized submission's uuid it flipped the aggregate back to `Draft` and wrote new draft
+  rows next to the final ones (finalizing again left two final rows per field); given another
+  form's draft it deleted that draft's rows and moved its aggregate to the new form. Both — and
+  a malformed uuid, which Postgres rejected mid-query — now throw `DraftNotFoundException` and
+  leave the stored submission untouched.

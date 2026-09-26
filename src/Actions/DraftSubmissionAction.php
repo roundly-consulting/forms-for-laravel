@@ -10,10 +10,12 @@ use Illuminate\Support\Str;
 use RoundlyConsulting\Forms\DataTransferObjects\SubmissionData;
 use RoundlyConsulting\Forms\DataTransferObjects\SubmissionResult;
 use RoundlyConsulting\Forms\Enums\SubmissionStatus;
+use RoundlyConsulting\Forms\Exceptions\DraftNotFoundException;
 use RoundlyConsulting\Forms\Models\Field;
 use RoundlyConsulting\Forms\Models\Form;
 use RoundlyConsulting\Forms\Models\Submission;
 use RoundlyConsulting\Forms\Resolvers\AttachesToSubmission;
+use RoundlyConsulting\Forms\Support\FormSubmissionModel;
 use RoundlyConsulting\Forms\Support\SubmissionModel;
 
 /**
@@ -34,6 +36,7 @@ final class DraftSubmissionAction
 
         $fieldCount = $form->getConnection()->transaction(function () use ($form, $request, $sender, $uuid, $resuming): int {
             if ($resuming) {
+                $this->guardResumable($form, $uuid);
                 $this->clearExistingDraft($uuid);
             }
 
@@ -67,6 +70,40 @@ final class DraftSubmissionAction
             fieldCount: $fieldCount,
             submittedAt: now(),
         );
+    }
+
+    /**
+     * Only a draft of this form can be resumed. Resuming clears the uuid's *draft* rows and
+     * rewrites its aggregate, so a finalized uuid (or another form's draft) would be reopened
+     * next to its final rows — and finalizing it again doubled every field's row. A malformed
+     * uuid identifies nothing (and a strict engine rejects it in the query), so it is not
+     * found either — the same answers `finalize()` gives.
+     */
+    private function guardResumable(Form $form, string $uuid): void
+    {
+        if (! Str::isUuid($uuid)) {
+            throw DraftNotFoundException::forUuid($uuid);
+        }
+
+        $aggregateModel = FormSubmissionModel::class();
+        $aggregate = $aggregateModel::query()->where('uuid', $uuid)->first();
+
+        $foreignAggregate = $aggregate !== null
+            && (! $aggregate->isDraft() || (string) $aggregate->form_id !== (string) $form->getKey());
+
+        $submissionModel = SubmissionModel::class();
+
+        $foreignRows = $submissionModel::query()
+            ->where('uuid', $uuid)
+            ->where(fn ($query) => $query
+                ->where('form_id', '!=', $form->getKey())
+                ->orWhereNull('status')
+                ->orWhere('status', '!=', SubmissionStatus::Draft->value))
+            ->exists();
+
+        if ($foreignAggregate || $foreignRows) {
+            throw DraftNotFoundException::forUuid($uuid);
+        }
     }
 
     private function clearExistingDraft(string $uuid): void

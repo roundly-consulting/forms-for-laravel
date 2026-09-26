@@ -312,7 +312,9 @@ Forms::draft($form, request(), $user, uuid: $draft->uuid);
 Forms::finalize($draft->uuid);
 ```
 
-Drafts are excluded from final-submission reads by default.
+Drafts are excluded from final-submission reads by default. Only a draft of the same form can
+be resumed: a finalized submission's uuid, another form's draft or a malformed uuid throws
+`DraftNotFoundException`, and the stored submission is left untouched.
 
 ### Reading submissions
 
@@ -499,7 +501,8 @@ Lookups throw package-specific exceptions, all extending
 - `MultipleFormsFoundException` — more than one form matches the key.
 - `UnresolvableFieldException` — no resolver is registered for a field's type.
 - `FormSubmissionClosedException` — submission attempted on a non-public or expired form.
-- `DraftNotFoundException` — `finalize()` called with an unknown draft uuid.
+- `DraftNotFoundException` — `finalize()` called with an unknown draft uuid, or `draft()` asked
+  to resume a uuid that is not a draft of that form.
 - `InvalidFieldValueException` — a submitted value fails its field's mapped type check.
 - `ReviewsDisabledException` — `Forms::review()` used while `forms.approvals.enabled` is false.
 - `SubmissionNotReviewableException` — a review opened on a draft submission.

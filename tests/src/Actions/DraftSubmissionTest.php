@@ -10,6 +10,7 @@ use RoundlyConsulting\Forms\Events\FormSubmitted;
 use RoundlyConsulting\Forms\Exceptions\DraftNotFoundException;
 use RoundlyConsulting\Forms\Facades\Forms;
 use RoundlyConsulting\Forms\GroupBuilder;
+use RoundlyConsulting\Forms\Models\FormSubmission;
 use RoundlyConsulting\Forms\Models\Submission;
 
 function draftForm(): void
@@ -113,3 +114,44 @@ it('resumes a draft by reusing its uuid', function () {
         ->and($rows->firstWhere('field_id', Forms::find('apply')->fields->firstWhere('key', 'email')?->id)?->value)
         ->toBe(['value' => 'jane@example.com']);
 });
+
+it('refuses to resume a finalized submission as a draft', function () {
+    // Regression: resuming only cleared *draft* rows under the uuid, then flipped the
+    // aggregate back to Draft and wrote fresh draft rows next to the final ones — a finished
+    // submission (already announced via FormSubmitted, possibly under review) reopened, and
+    // finalizing it again left two final rows per field under one uuid.
+    draftForm();
+    $form = Forms::find('apply');
+    $values = ['apply' => ['g' => ['name' => 'Jane', 'email' => 'jane@example.com']]];
+
+    $final = Forms::submit($form, Request::create('t', parameters: $values));
+
+    expect(fn () => Forms::draft($form, Request::create('t', parameters: $values), uuid: $final->uuid))
+        ->toThrow(DraftNotFoundException::class)
+        ->and(FormSubmission::query()->sole()->status)->toBe(SubmissionStatus::Final)
+        ->and(Submission::query()->where('uuid', $final->uuid)->count())->toBe(2)
+        ->and(Submission::query()->where('uuid', $final->uuid)->draft()->count())->toBe(0);
+});
+
+it('refuses to resume another form\'s draft', function () {
+    draftForm();
+    Forms::define('other', 'Other')
+        ->public()
+        ->group('g', 'G', function (GroupBuilder $g): void {
+            $g->field('note', 'Note');
+        })
+        ->create();
+
+    $draft = Forms::draft(Forms::find('apply'), Request::create('t', parameters: ['apply' => ['g' => ['name' => 'Jane']]]));
+
+    expect(fn () => Forms::draft(Forms::find('other'), Request::create('t', parameters: ['other' => ['g' => ['note' => 'x']]]), uuid: $draft->uuid))
+        ->toThrow(DraftNotFoundException::class)
+        ->and(FormSubmission::query()->sole()->form_id)->toBe(Forms::find('apply')->getKey())
+        ->and(Submission::query()->where('uuid', $draft->uuid)->draft()->count())->toBe(2);
+});
+
+it('refuses to resume a malformed draft uuid', function () {
+    draftForm();
+
+    Forms::draft(Forms::find('apply'), Request::create('t', parameters: ['apply' => ['g' => ['name' => 'Jane']]]), uuid: 'not-a-uuid');
+})->throws(DraftNotFoundException::class);
