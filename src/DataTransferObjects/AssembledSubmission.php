@@ -12,7 +12,7 @@ final readonly class AssembledSubmission
     public function __construct(
         public string $uuid,
         public array $values,
-        public ?int $senderId,
+        public int|string|null $senderId,
         public ?string $senderType,
         public CarbonInterface $submittedAt,
     ) {}

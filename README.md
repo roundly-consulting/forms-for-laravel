@@ -82,6 +82,9 @@ return [
         'form_submission' => \RoundlyConsulting\Forms\Models\FormSubmission::class,
     ],
 
+    // Key type of the polymorphic sender columns: 'bigint', 'uuid' or 'ulid'.
+    'key_type' => env('FORMS_KEY_TYPE', 'bigint'),
+
     // Map a field `type` to the resolver that reads/writes its value.
     // `default` is used for any type without an explicit mapping.
     'fields' => [
@@ -128,6 +131,7 @@ return [
 | `models.field` | `class-string` | `Models\Field` | Model used for fields. |
 | `models.submission` | `class-string` | `Models\Submission` | Model used for per-field submission rows. |
 | `models.form_submission` | `class-string` | `Models\FormSubmission` | Aggregate model grouping a submission's rows (the approvals subject). |
+| `key_type` | `string` | `bigint` (`FORMS_KEY_TYPE`) | Key type of the polymorphic `sender_id` columns — `bigint`, `uuid` or `ulid`. Set it to match your senders' primary keys before migrating; the sender key is stored and read back as-is (`AssembledSubmission::$senderId` is `int\|string\|null`). |
 | `fields.default` | `class-string` | `Resolvers\DefaultResolver` | Resolver used for any field type without a specific mapping. |
 | `fields.file` / `fields.image` | `class-string` | `Resolvers\MediaFileResolver` | Media-backed resolver; stores the upload as media on the submission row. |
 | `field_types` | `array<string,string>` | see config | Maps a field `type` to an `AttributeType` for typed reads + validation. |

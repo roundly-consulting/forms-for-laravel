@@ -26,7 +26,7 @@ use RoundlyConsulting\Forms\Support\SubmissionModel;
  *
  * @property int $id
  * @property string $uuid
- * @property int|null $sender_id
+ * @property int|string|null $sender_id
  * @property string|null $sender_type
  * @property int $form_id
  * @property SubmissionStatus $status

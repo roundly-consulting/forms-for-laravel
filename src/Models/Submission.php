@@ -24,7 +24,7 @@ use RoundlyConsulting\MediaLibrary\Contracts\HasMedia;
  * @property int $id
  * @property string $uuid
  * @property int|null $form_submission_id
- * @property int|null $sender_id
+ * @property int|string|null $sender_id
  * @property string|null $sender_type
  * @property int $form_id
  * @property int $group_id

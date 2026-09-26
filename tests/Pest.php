@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use RoundlyConsulting\Forms\Tests\testable\SwappedModelsTestCase;
+use RoundlyConsulting\Forms\Tests\testable\UlidKeyTestCase;
+use RoundlyConsulting\Forms\Tests\testable\UuidKeyTestCase;
 use RoundlyConsulting\Forms\Tests\TestCase;
 
 /**
@@ -19,7 +21,17 @@ uses(TestCase::class)->in(
     __DIR__.'/ArchTest.php',
     __DIR__.'/Feature',
     __DIR__.'/src',
+    __DIR__.'/KeyTypes/BigIntSenderTest.php',
 );
+
+/**
+ * The sender key type is fixed at migrate time, so each non-default leg needs `forms.key_type`
+ * set before the providers boot — a base case per key type is the only way to reach that
+ * window. The bigint leg above rides the default base case because it must prove the
+ * *unconfigured* install.
+ */
+uses(UuidKeyTestCase::class)->in(__DIR__.'/KeyTypes/UuidSenderTest.php');
+uses(UlidKeyTestCase::class)->in(__DIR__.'/KeyTypes/UlidSenderTest.php');
 
 /**
  * The model-swap proofs need every `forms.models.*` key pointed at a host subclass BEFORE

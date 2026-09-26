@@ -13,7 +13,7 @@ final readonly class SubmissionData
     /** @param  array<array-key, mixed>  $value */
     public function __construct(
         public string $uuid,
-        public ?int $senderId,
+        public int|string|null $senderId,
         public ?string $senderType,
         public int $formId,
         public int $groupId,
@@ -32,11 +32,9 @@ final readonly class SubmissionData
         ?SubmissionStatus $status = null,
         ?int $formSubmissionId = null,
     ): self {
-        $senderKey = $sender?->getKey();
-
         return new self(
             uuid: $uuid,
-            senderId: $senderKey === null ? null : (int) $senderKey,
+            senderId: self::senderKey($sender),
             senderType: $sender?->getMorphClass(),
             formId: $field->form_id,
             groupId: $field->group_id,
@@ -45,5 +43,16 @@ final readonly class SubmissionData
             status: $status,
             formSubmissionId: $formSubmissionId,
         );
+    }
+
+    /**
+     * The sender's key exactly as the sender returns it. `forms.key_type` lets a host key its
+     * senders by uuid/ulid; an integer cast would store those as `0` or a digit prefix.
+     */
+    public static function senderKey(?Model $sender): int|string|null
+    {
+        $key = $sender?->getKey();
+
+        return $key === null || is_int($key) ? $key : (string) $key;
     }
 }
