@@ -136,8 +136,8 @@ return [
 | `fields.file` / `fields.image` | `class-string` | `Resolvers\MediaFileResolver` | Media-backed resolver; stores the upload as media on the submission row. |
 | `field_types` | `array<string,string>` | see config | Maps a field `type` to an `AttributeType` for typed reads + validation. |
 | `media.bucket` | `string` | `attachment` | Media bucket the submission row registers uploads into. |
-| `media.visibility` | `string` | `private` | `private` (signed streaming) or `public`. |
-| `media.disk` | `?string` | media default (`FORMS_MEDIA_DISK`) | Disk uploads are stored on. |
+| `media.visibility` | `string` | `private` | `private` (only ever linked via signed URLs) or `public`. |
+| `media.disk` | `?string` | media default (`FORMS_MEDIA_DISK`) | Disk uploads are stored on. The media default is `public` (web-served) — use a non-public disk for private uploads. |
 | `media.accepted_mime_types` | `?array` | `null` | Restrict accepted mime types (null = open). |
 | `media.max_file_size` | `?int` | `null` | Max upload size in bytes (null = media default). |
 | `media.responsive_widths` | `?array` | `null` | Responsive image widths (null = media default ladder). |
@@ -378,14 +378,22 @@ $g->field('passport', 'Passport')->file();
 // the submission row is the media owner:
 $row = Forms::find('kyc')->fields->firstWhere('key', 'passport')->submissions->first();
 $row->attachments();               // Collection<Media>
-$row->attachmentUrl();             // base URL of the first attachment
-$row->attachmentTemporaryUrl();    // short-lived signed URL
+$row->attachmentUrl();             // first attachment's URL: signed if private, public if public
+$row->attachmentTemporaryUrl();    // always a short-lived signed URL
 
 // or through the resolver:
 $resolver = Forms::find('kyc')->fields->firstWhere('key', 'passport')->resolver();
 $resolver->fromStorage();          // the stored media UUID
-$resolver->url();                  // the media URL
+$resolver->url();                  // same as attachmentUrl()
 ```
+
+A private upload is only ever linked through a short-lived signed URL — never a public one.
+
+> [!IMPORTANT]
+> Signed URLs protect the link, not the bytes. With `forms.media.disk` unset, uploads are stored
+> on media-library's default disk — `public` unless you changed `media.disk` — which
+> `php artisan storage:link` exposes under `/storage`. Store private uploads on a disk that is
+> not web-served, e.g. `FORMS_MEDIA_DISK=local` or a private S3 disk.
 
 ### Submission review (approvals)
 

@@ -77,7 +77,9 @@ return [
         // Visibility of stored uploads: 'private' (default, signed streaming) or 'public'.
         'visibility' => 'private',
 
-        // Disk for the submission media. null => the media-library default disk.
+        // Disk for the submission media. null => the media-library default disk, which is
+        // 'public' out of the box — web-served under /storage once `storage:link` runs. Keep
+        // private uploads on a disk that is not web-served ('local', a private S3 disk).
         'disk' => env('FORMS_MEDIA_DISK'),
 
         // Restrict accepted mime types. null/[] => the media-library default (open).

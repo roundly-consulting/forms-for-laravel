@@ -58,8 +58,9 @@ class MediaFileResolver implements AttachesToSubmission, Resolver
     }
 
     /**
-     * A base URL for the stored attachment on the owner row, or null when none
-     * is stored.
+     * The URL of the stored attachment on the owner row — a short-lived signed URL when the
+     * upload is private (the default), its public URL when public — or null when none is
+     * stored.
      */
     public function url(?Model $sender = null, string $variant = ''): ?string
     {

@@ -78,17 +78,19 @@ trait HasSubmissionMedia
     }
 
     /**
-     * The public/base URL of the first attachment, or null when none is stored.
+     * The URL of the first attachment, resolved by its visibility (see
+     * {@see self::resolveAttachmentUrl()}), or null when none is stored.
      */
     public function attachmentUrl(string $variant = ''): ?string
     {
         $media = $this->getFirstMedia($this->attachmentBucket());
 
-        return $media?->getUrl($variant);
+        return $media === null ? null : $this->resolveAttachmentUrl($media, $variant);
     }
 
     /**
-     * The base URLs of every attachment (responsive variant when requested).
+     * The URLs of every attachment (responsive variant when requested), each resolved by its
+     * visibility (see {@see self::resolveAttachmentUrl()}).
      *
      * @return list<string>
      */
@@ -96,9 +98,22 @@ trait HasSubmissionMedia
     {
         return array_values(
             $this->attachments()
-                ->map(fn (Media $media): string => $media->getUrl($variant))
+                ->map(fn (Media $media): string => $this->resolveAttachmentUrl($media, $variant))
                 ->all(),
         );
+    }
+
+    /**
+     * The URL to serve an attachment at, chosen by the attachment's own visibility: a public
+     * upload gets its public (CDN-rewritable) URL, a private one a short-lived signed URL
+     * (presigned on capable disks, otherwise media's signed streaming route). A private upload
+     * never gets a public URL.
+     */
+    public function resolveAttachmentUrl(Media $media, string $variant = ''): string
+    {
+        return $media->isPrivate()
+            ? $media->getTemporaryUrl($this->temporaryUrlExpiry(), $variant)
+            : $media->getUrl($variant);
     }
 
     /**
