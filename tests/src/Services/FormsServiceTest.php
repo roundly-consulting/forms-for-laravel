@@ -81,7 +81,7 @@ it('creates full form submission', function () {
 
     $form = $fs->find('myform');
 
-    $submission = $fs->storeSubmission(
+    $submission = $fs->submit(
         form: $form,
         request: Request::create(
             uri: 'testing',
@@ -94,7 +94,7 @@ it('creates full form submission', function () {
             ],
         ),
         sender: $form->groups->first(),
-    );
+    )->uuid;
 
     expect($submission)->toBeString();
     expect(Submission::query()->where('uuid', $submission)->count())->toBe(1);

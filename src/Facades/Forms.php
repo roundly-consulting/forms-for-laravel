@@ -25,7 +25,6 @@ use RoundlyConsulting\Forms\UpdateFormBuilder;
  * @method static list<string> sync(?array<int, array<string, mixed>> $definitions = null)
  * @method static array<string, mixed> validate(Form $form, \Illuminate\Http\Request $request)
  * @method static SubmissionResult submit(Form $form, \Illuminate\Http\Request $request, ?\Illuminate\Database\Eloquent\Model $sender = null, bool $bypassClosed = false)
- * @method static string storeSubmission(Form $form, \Illuminate\Http\Request $request, ?\Illuminate\Database\Eloquent\Model $sender = null, bool $bypassClosed = false)
  * @method static SubmissionResult draft(Form $form, \Illuminate\Http\Request $request, ?\Illuminate\Database\Eloquent\Model $sender = null, ?string $uuid = null, bool $bypassClosed = false)
  * @method static SubmissionResult finalize(string $uuid, bool $bypassClosed = false)
  * @method static SubmissionQuery submissions(Form $form)

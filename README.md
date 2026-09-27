@@ -292,16 +292,15 @@ $result->fieldCount;  // number of fields stored
 $result->submittedAt; // CarbonInterface timestamp
 ```
 
-`Forms::storeSubmission()` is also available and returns just the UUID string for
-backward compatibility. `RoundlyConsulting\Forms\Services\FormsService` (the object behind
-the facade) exposes the same API and can be resolved from the container directly.
+`RoundlyConsulting\Forms\Services\FormsService` (the object behind the facade) exposes the same
+API and can be resolved from the container directly.
 
 #### Closed forms are rejected
 
 Every path to a final submission rejects a form that isn't accepting them — a non-public form,
 or one whose `expires_at` has passed — by throwing
-`RoundlyConsulting\Forms\Exceptions\FormSubmissionClosedException`: `submit()` /
-`storeSubmission()`, `draft()` (and `draftTo()`), `finalize()` — checked again at finalize time,
+`RoundlyConsulting\Forms\Exceptions\FormSubmissionClosedException`: `submit()`,
+`draft()` (and `draftTo()`), `finalize()` — checked again at finalize time,
 so a draft saved while the form was open can't be finalized after it closes — and the raw
 `createSubmission()`. Pass `bypassClosed: true` for trusted internal/admin submissions:
 

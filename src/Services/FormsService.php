@@ -31,8 +31,8 @@ use RoundlyConsulting\Forms\Testing\FormsFake;
 use RoundlyConsulting\Forms\UpdateFormBuilder;
 
 /**
- * Backward-compatible manager backing the `Forms` facade. Holds no logic of its
- * own — every method delegates to a dedicated Action.
+ * The manager backing the `Forms` facade. Holds no logic of its own — every
+ * method delegates to a dedicated Action.
  */
 class FormsService
 {
@@ -99,11 +99,6 @@ class FormsService
     public function submit(Form $form, Request $request, ?Model $sender = null, bool $bypassClosed = false): SubmissionResult
     {
         return $this->storeSubmission->execute($form, $request, $sender, $bypassClosed);
-    }
-
-    public function storeSubmission(Form $form, Request $request, ?Model $sender = null, bool $bypassClosed = false): string
-    {
-        return $this->submit($form, $request, $sender, $bypassClosed)->uuid;
     }
 
     public function draft(Form $form, Request $request, ?Model $sender = null, ?string $uuid = null, bool $bypassClosed = false): SubmissionResult

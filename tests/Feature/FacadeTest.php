@@ -59,16 +59,3 @@ it('submits through the facade and returns a result', function () {
         ->and($result->fieldCount)->toBe(1)
         ->and(Submission::query()->where('uuid', $result->uuid)->count())->toBe(1);
 });
-
-it('keeps the legacy storeSubmission string return', function () {
-    seedForm();
-
-    $form = Forms::find('contact');
-
-    $uuid = Forms::storeSubmission($form, Request::create('t', parameters: [
-        'contact' => ['details' => ['name' => 'Jane']],
-    ]));
-
-    expect($uuid)->toBeString()
-        ->and(Submission::query()->where('uuid', $uuid)->exists())->toBeTrue();
-});
