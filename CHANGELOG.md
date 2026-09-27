@@ -1,40 +1,33 @@
 # Changelog
 
-All notable changes to `forms-for-laravel` will be documented in this file.
+All notable changes to `forms-for-laravel` are documented in this file. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
+[Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
-### Fixed
+Initial public release.
 
-- With `forms.key_type` set to `uuid` or `ulid`, submissions now store the sender's real key.
-  The write paths (`CreateFormSubmissionAction`, `SubmissionData::forField()`) cast it to an
-  integer, so a uuid/ulid sender was stored as `0` or a digit prefix (`'0199…'` → `199`): its
-  submissions never showed up under `$sender->formSubmissions`, `forSender()` or a resolver's
-  `fromStorage($sender)`, and a Postgres uuid column rejected the write outright.
-  `SubmissionData::$senderId` and `AssembledSubmission::$senderId` are now `int|string|null`.
-- Private uploads (the default `forms.media.visibility`) are now linked through short-lived
-  signed URLs. `attachmentUrl()`, `attachmentUrls()` and `MediaFileResolver::url()` asked
-  media-library for the upload's public URL, which it refuses for private media — so on the
-  default config each of them threw `MediaCannotBeStreamed`. They now go through the new
-  `resolveAttachmentUrl()` (public URL for public media, signed URL for private media).
-- Resuming a draft (`Forms::draft(..., uuid: $uuid)`) now only accepts a draft of the same form.
-  Given a finalized submission's uuid it flipped the aggregate back to `Draft` and wrote new draft
-  rows next to the final ones (finalizing again left two final rows per field); given another
-  form's draft it deleted that draft's rows and moved its aggregate to the new form. Both — and
-  a malformed uuid, which Postgres rejected mid-query — now throw `DraftNotFoundException` and
-  leave the stored submission untouched.
-- A closed form (non-public or past `expires_at`) no longer accepts a final submission by any
-  path. Only `submit()` checked it: `draft()` + `finalize()` — and the raw `createSubmission()`,
-  whose rows read as final — went through on a closed form, and a draft saved while the form was
-  open could be finalized after it closed. `draft()`, `draftTo()`, `finalize()` and
-  `createSubmission()` now throw `FormSubmissionClosedException` (checked again at finalize time)
-  and accept `bypassClosed: true` like `submit()`. New `Form::ensureAcceptingSubmissions()`.
+### Added
 
-### Security
-
-- Private uploads are now stored on a non-public disk by default: new `forms.media.private_disk`
-  (`FORMS_MEDIA_PRIVATE_DISK`, default `local`) holds private originals and their variants
-  whenever `forms.media.disk` is unset. They used to land on media-library's default `public`
-  disk — served under `/storage` once `storage:link` runs — so a private upload (a passport
-  scan, say) was reachable without its signed URL, although the trait promised a private disk.
-  The signed stream route serves them from the private disk.
+- Multi-step forms stored in your database — forms, groups and fields as swappable Eloquent
+  models — with per-field validation rules and stored submissions.
+- A fluent builder, `Forms::define('contact', 'Contact us')->group(...)->create()`, with typed
+  field shortcuts (`email()`, `number()`, `date()`, `select()`, `file()`, …) and custom messages.
+- Conditional fields with `requiredWhen()` and `visibleWhen()`, enforced during validation.
+- A `Forms` facade to `find()`, `validate()` and `submit()`, rejecting closed (non-public or
+  expired) forms unless you pass `bypassClosed: true`.
+- Draft submissions that save now and `finalize()` later, and a submissions reader that returns
+  one keyed answer set per submission.
+- `Forms::update()` to change a form's structure in place, and declarative forms from config
+  synced with `forms:sync`.
+- Typed field values — numbers, booleans, dates and arrays read back as real PHP types — through
+  attributes-for-laravel.
+- File and image fields stored as media on the submission, served only through signed URLs when
+  private, through media-library-for-laravel.
+- Optional multi-approver review of whole submissions (`Forms::review()`) through
+  approvals-for-laravel, mirrored back onto the submission status.
+- A `HasForms` trait (`submitTo()`, `draftTo()`), custom field resolvers, autofill classes, query
+  scopes and API resources (`FormResource`).
+- Events for submissions and for every form, group and field change, and `Forms::fake()` with
+  assertions such as `assertSubmitted()` for your tests.
