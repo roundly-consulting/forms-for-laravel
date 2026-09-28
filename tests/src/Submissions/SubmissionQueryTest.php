@@ -74,3 +74,54 @@ it('excludes drafts unless asked to include them', function () {
     expect(Forms::submissions($form)->count())->toBe(0)
         ->and(Forms::submissions($form)->withDrafts()->count())->toBe(1);
 });
+
+/*
+ * Review fixes (2026-09-28) — a field key may repeat across groups (the unique index is per
+ * group). Keying the assembled values by the bare field key let the later group's answer
+ * overwrite the earlier one's.
+ */
+
+it('keeps both answers when two groups share a field key', function () {
+    $form = Forms::define('family', 'Family')
+        ->public()
+        ->group('applicant', 'Applicant', function (GroupBuilder $g): void {
+            $g->field('name', 'Name');
+            $g->field('age', 'Age');
+        })
+        ->group('guardian', 'Guardian', function (GroupBuilder $g): void {
+            $g->field('name', 'Name');
+        })
+        ->create();
+
+    Forms::submit($form, Request::create('t', parameters: ['family' => [
+        'applicant' => ['name' => 'Kid', 'age' => '9'],
+        'guardian' => ['name' => 'Parent'],
+    ]]));
+
+    $set = Forms::submissions($form)->first();
+
+    expect($set?->values)->toBe(['applicant.name' => 'Kid', 'age' => '9', 'guardian.name' => 'Parent'])
+        ->and($set?->value('guardian.name'))->toBe('Parent');
+});
+
+it('lists values in form order: groups by order, then fields by order', function () {
+    $form = Forms::define('ordered', 'Ordered')
+        ->public()
+        ->group('second', 'Second', function (GroupBuilder $g): void {
+            $g->order(2);
+            $g->field('b', 'B')->order(2);
+            $g->field('a', 'A')->order(1);
+        })
+        ->group('first', 'First', function (GroupBuilder $g): void {
+            $g->order(1);
+            $g->field('z', 'Z');
+        })
+        ->create();
+
+    Forms::submit($form, Request::create('t', parameters: ['ordered' => [
+        'second' => ['a' => '1', 'b' => '2'],
+        'first' => ['z' => '0'],
+    ]]));
+
+    expect(array_keys(Forms::submissions($form)->first()?->values ?? []))->toBe(['z', 'a', 'b']);
+});

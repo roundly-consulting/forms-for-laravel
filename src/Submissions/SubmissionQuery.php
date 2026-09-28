@@ -11,15 +11,18 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use RoundlyConsulting\Forms\DataTransferObjects\AssembledSubmission;
 use RoundlyConsulting\Forms\Enums\SubmissionStatus;
+use RoundlyConsulting\Forms\Models\Field;
 use RoundlyConsulting\Forms\Models\Form;
 use RoundlyConsulting\Forms\Models\Submission;
+use RoundlyConsulting\Forms\Support\FieldModel;
 use RoundlyConsulting\Forms\Support\FormSubmissionModel;
 use RoundlyConsulting\Forms\Support\SubmissionModel;
 
 /**
  * `Forms::submissions($form)` — a fluent reader that assembles raw per-field submission
- * rows back into one keyed [field_key => value] set per uuid group. Always scoped to its
- * form: a uuid of another form's submission matches nothing.
+ * rows back into one keyed [field_key => value] set per uuid group, in form order. A field
+ * key two groups of the form share is keyed `group_key.field_key` instead. Always scoped to
+ * its form: a uuid of another form's submission matches nothing.
  */
 final class SubmissionQuery
 {
@@ -128,9 +131,11 @@ final class SubmissionQuery
             ->with(['field', 'group'])
             ->get();
 
+        $shared = $this->sharedKeys();
+
         $grouped = $rows
             ->groupBy(fn (Submission $submission): string => $submission->uuid)
-            ->map(fn (EloquentCollection $group): AssembledSubmission => $this->assemble($group))
+            ->map(fn (EloquentCollection $group): AssembledSubmission => $this->assemble($group, $shared))
             ->values();
 
         $sorted = $this->latest
@@ -160,15 +165,49 @@ final class SubmissionQuery
         return $this;
     }
 
-    /** @param  EloquentCollection<int, Submission>  $group */
-    private function assemble(EloquentCollection $group): AssembledSubmission
+    /**
+     * The field keys more than one group of the form uses — soft-deleted fields included,
+     * since their answers are still read. Those are keyed `group_key.field_key` so neither
+     * group's answer overwrites the other's; every other field keeps its bare key.
+     *
+     * @return array<string, true>
+     */
+    private function sharedKeys(): array
+    {
+        $fieldModel = FieldModel::class();
+
+        /** @var array<string, true> $shared */
+        $shared = $fieldModel::withTrashed()
+            ->where('form_id', $this->form->getKey())
+            ->get(['key', 'group_id'])
+            ->groupBy(fn (Field $field): string => $field->key)
+            ->filter(fn (EloquentCollection $fields): bool => $fields->pluck('group_id')->unique()->count() > 1)
+            ->map(fn (): bool => true)
+            ->all();
+
+        return $shared;
+    }
+
+    /**
+     * @param  EloquentCollection<int, Submission>  $group
+     * @param  array<string, true>  $shared
+     */
+    private function assemble(EloquentCollection $group, array $shared): AssembledSubmission
     {
         /** @var Submission $first */
         $first = $group->first();
 
         $values = $group
+            ->sortBy([
+                fn (Submission $a, Submission $b): int => $a->group->order <=> $b->group->order,
+                fn (Submission $a, Submission $b): int => $a->group_id <=> $b->group_id,
+                fn (Submission $a, Submission $b): int => $a->field->order <=> $b->field->order,
+                fn (Submission $a, Submission $b): int => $a->getKey() <=> $b->getKey(),
+            ])
             ->mapWithKeys(fn (Submission $submission): array => [
-                $submission->field->key => $submission->typedValue(),
+                isset($shared[$submission->field->key])
+                    ? $submission->group->key.'.'.$submission->field->key
+                    : $submission->field->key => $submission->typedValue(),
             ])
             ->all();
 
