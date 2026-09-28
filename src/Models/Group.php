@@ -53,10 +53,14 @@ class Group extends Model
         return $query->oldest('order');
     }
 
-    /** @return BelongsTo<Form, $this> */
+    /**
+     * The owning form — a soft-deleted one included.
+     *
+     * @return BelongsTo<Form, $this>
+     */
     public function form(): BelongsTo
     {
-        return $this->belongsTo(FormModel::class(), 'form_id');
+        return $this->belongsTo(FormModel::class(), 'form_id')->withTrashed();
     }
 
     /** @return HasMany<Field, $this> */

@@ -268,16 +268,25 @@ class Field extends Model
         ]);
     }
 
-    /** @return BelongsTo<Form, $this> */
+    /**
+     * The owning form — a soft-deleted one included: the field (and every answer stored
+     * against it) still belongs to it.
+     *
+     * @return BelongsTo<Form, $this>
+     */
     public function form(): BelongsTo
     {
-        return $this->belongsTo(FormModel::class(), 'form_id');
+        return $this->belongsTo(FormModel::class(), 'form_id')->withTrashed();
     }
 
-    /** @return BelongsTo<Group, $this> */
+    /**
+     * The owning group — a soft-deleted one included.
+     *
+     * @return BelongsTo<Group, $this>
+     */
     public function group(): BelongsTo
     {
-        return $this->belongsTo(GroupModel::class(), 'group_id');
+        return $this->belongsTo(GroupModel::class(), 'group_id')->withTrashed();
     }
 
     /** @return HasMany<Submission, $this> */

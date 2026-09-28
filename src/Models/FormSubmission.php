@@ -92,10 +92,15 @@ class FormSubmission extends Model implements RequiresApprovalInterface
         return $this->morphTo();
     }
 
-    /** @return BelongsTo<Form, $this> */
+    /**
+     * The submitted form — a soft-deleted one included, so its past submissions stay
+     * readable.
+     *
+     * @return BelongsTo<Form, $this>
+     */
     public function form(): BelongsTo
     {
-        return $this->belongsTo(FormModel::class(), 'form_id');
+        return $this->belongsTo(FormModel::class(), 'form_id')->withTrashed();
     }
 
     /** @return HasMany<Submission, $this> */

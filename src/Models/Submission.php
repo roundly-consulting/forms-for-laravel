@@ -114,22 +114,35 @@ class Submission extends Model implements HasMedia
         return $this->morphTo();
     }
 
-    /** @return BelongsTo<Field, $this> */
+    /**
+     * The field this row answers — a soft-deleted one included, so removing a field from a
+     * form never breaks reading the answers already given to it.
+     *
+     * @return BelongsTo<Field, $this>
+     */
     public function field(): BelongsTo
     {
-        return $this->belongsTo(FieldModel::class(), 'field_id');
+        return $this->belongsTo(FieldModel::class(), 'field_id')->withTrashed();
     }
 
-    /** @return BelongsTo<Group, $this> */
+    /**
+     * The field's group — a soft-deleted one included.
+     *
+     * @return BelongsTo<Group, $this>
+     */
     public function group(): BelongsTo
     {
-        return $this->belongsTo(GroupModel::class(), 'group_id');
+        return $this->belongsTo(GroupModel::class(), 'group_id')->withTrashed();
     }
 
-    /** @return BelongsTo<Form, $this> */
+    /**
+     * The form — a soft-deleted one included.
+     *
+     * @return BelongsTo<Form, $this>
+     */
     public function form(): BelongsTo
     {
-        return $this->belongsTo(FormModel::class(), 'form_id');
+        return $this->belongsTo(FormModel::class(), 'form_id')->withTrashed();
     }
 
     /** @return BelongsTo<FormSubmission, $this> */
