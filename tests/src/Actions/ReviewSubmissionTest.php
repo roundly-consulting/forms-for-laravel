@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Schema;
 use RoundlyConsulting\Approvals\Enums\ApprovalRule;
 use RoundlyConsulting\Approvals\Enums\ApprovalStatus;
 use RoundlyConsulting\Approvals\Events\ApprovalRequestResolved;
+use RoundlyConsulting\Approvals\Exceptions\UnauthorizedApprovalException;
+use RoundlyConsulting\Approvals\Models\ApprovalRequest;
 use RoundlyConsulting\Forms\Enums\SubmissionStatus;
 use RoundlyConsulting\Forms\Events\SubmissionApproved;
 use RoundlyConsulting\Forms\Events\SubmissionRejected;
@@ -173,3 +175,99 @@ it('ignores a cancelled resolution', function () {
 
     expect($submission->fresh()?->status)->toBe(SubmissionStatus::Pending);
 });
+
+/*
+ * Review fixes (2026-09-28) — the reviewers a review names are the only ones who can decide
+ * it. Forms hands them to the approvals engine, which persists and enforces them; these pin
+ * that from the consumer side, so a regression in either package reds here.
+ */
+
+it('refuses a decision from anyone the review does not name, the submitter included', function () {
+    $submitter = Reviewer::query()->create();
+    $lead = Reviewer::query()->create();
+    $qa = Reviewer::query()->create();
+    $outsider = Reviewer::query()->create();
+
+    $submission = FormSubmission::factory()->create([
+        'sender_id' => $submitter->getKey(),
+        'sender_type' => $submitter->getMorphClass(),
+    ]);
+
+    Forms::review($submission)->requiring([$lead, $qa])->quorum(1)->open();
+
+    expect(fn () => $submitter->approve($submission))->toThrow(UnauthorizedApprovalException::class)
+        ->and(fn () => $outsider->approve($submission))->toThrow(UnauthorizedApprovalException::class)
+        ->and(fn () => $outsider->reject($submission, 'veto'))->toThrow(UnauthorizedApprovalException::class)
+        ->and($submission->fresh()?->status)->toBe(SubmissionStatus::Pending);
+
+    $qa->approve($submission);
+
+    expect($submission->fresh()?->status)->toBe(SubmissionStatus::Approved);
+});
+
+it('refuses to open a review that names no reviewers', function () {
+    $submission = FormSubmission::factory()->create();
+
+    expect(fn () => Forms::review($submission)->open())
+        ->toThrow(SubmissionNotReviewableException::class, 'without naming its reviewers')
+        ->and($submission->fresh()?->status)->toBe(SubmissionStatus::Final);
+});
+
+it('resolves a re-review when the same reviewer approves again', function () {
+    $submission = FormSubmission::factory()->create();
+    $lead = Reviewer::query()->create();
+
+    Forms::review($submission)->requiring([$lead])->open();
+    $lead->approve($submission);
+    expect($submission->fresh()?->status)->toBe(SubmissionStatus::Approved);
+
+    Forms::review($submission->fresh())->requiring([$lead])->open();
+    expect($submission->fresh()?->status)->toBe(SubmissionStatus::Pending);
+
+    $lead->approve($submission);
+    expect($submission->fresh()?->status)->toBe(SubmissionStatus::Approved);
+});
+
+it('fires SubmissionApproved once when two resolutions race for the same submission', function () {
+    $submission = FormSubmission::factory()->create();
+    $reviewer = Reviewer::query()->create();
+
+    $request = Forms::review($submission)->requiring([$reviewer])->open();
+
+    // Both resolutions read the submission while it was still pending…
+    $stale = $submission->fresh();
+    $request->status = ApprovalStatus::Approved;
+    $request->save();
+
+    // …the first one applies…
+    (new SyncSubmissionStatusFromApproval)->handle(new ApprovalRequestResolved($request->fresh()));
+
+    // …and the second arrives carrying its stale, still-pending copy.
+    Event::fake([SubmissionApproved::class, SubmissionStatusChanged::class]);
+    $late = $request->fresh();
+    $late?->setRelation('subject', $stale);
+    (new SyncSubmissionStatusFromApproval)->handle(new ApprovalRequestResolved($late));
+
+    Event::assertNotDispatched(SubmissionApproved::class);
+    Event::assertNotDispatched(SubmissionStatusChanged::class);
+    expect($submission->fresh()?->status)->toBe(SubmissionStatus::Approved);
+});
+
+it('reads the env-backed enabled flag as a boolean string', function (string $flag, bool $enabled) {
+    config()->set('forms.approvals.enabled', $flag);
+
+    $open = fn () => Forms::review(FormSubmission::factory()->create())
+        ->requiring([Reviewer::query()->create()])
+        ->open();
+
+    $enabled
+        ? expect($open())->toBeInstanceOf(ApprovalRequest::class)
+        : expect($open)->toThrow(ReviewsDisabledException::class);
+})->with([
+    ['true', true],
+    ['1', true],
+    ['on', true],
+    ['false', false],
+    ['0', false],
+    ['', false],
+]);

@@ -17,6 +17,7 @@ use RoundlyConsulting\Forms\Support\SubmissionModel;
 use RoundlyConsulting\PackageToolkit\Concerns\RegistersBlueprintMacros;
 use RoundlyConsulting\PackageToolkit\Package;
 use RoundlyConsulting\PackageToolkit\PackageServiceProvider;
+use RoundlyConsulting\PackageToolkit\Support\Config;
 
 final class FormsServiceProvider extends PackageServiceProvider
 {
@@ -53,7 +54,7 @@ final class FormsServiceProvider extends PackageServiceProvider
                 'Max upload size' => self::bytes(),
                 'Responsive widths' => self::listSize('forms.media.responsive_widths', 'width', 'MEDIA DEFAULT'),
                 'Signed URL lifetime' => self::signedUrlLifetime(),
-                'Submission review' => config('forms.approvals.enabled') === true ? 'ON (approvals)' : 'OFF',
+                'Submission review' => Config::boolean('forms.approvals.enabled') ? 'ON (approvals)' : 'OFF',
             ]);
     }
 

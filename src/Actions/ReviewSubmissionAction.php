@@ -13,12 +13,14 @@ use RoundlyConsulting\Forms\Exceptions\ReviewsDisabledException;
 use RoundlyConsulting\Forms\Exceptions\SubmissionNotReviewableException;
 use RoundlyConsulting\Forms\Listeners\SyncSubmissionStatusFromApproval;
 use RoundlyConsulting\Forms\Models\FormSubmission;
+use RoundlyConsulting\PackageToolkit\Support\Config;
 
 /**
  * Opens an approvals-engine request over a whole submission and moves it into
  * the {@see SubmissionStatus::Pending} state, so the submission is resolved by
  * the {@see SyncSubmissionStatusFromApproval}
- * listener as decisions come in.
+ * listener as decisions come in. Only the reviewers it names (or their delegates)
+ * can decide it.
  */
 final readonly class ReviewSubmissionAction
 {
@@ -29,12 +31,19 @@ final readonly class ReviewSubmissionAction
         ApprovalRule $rule = ApprovalRule::Unanimous,
         ?int $quorum = null,
     ): ApprovalRequest {
-        if (! (bool) config('forms.approvals.enabled', false)) {
+        if (! Config::boolean('forms.approvals.enabled')) {
             throw ReviewsDisabledException::make();
         }
 
         if (! $submission->status->isReviewable()) {
             throw SubmissionNotReviewableException::for($submission);
+        }
+
+        // The named reviewers are handed to the approvals engine, which stores them and
+        // refuses a decision from anyone else. A request naming nobody is open to every
+        // approver — the submitter included — so it never opens here.
+        if ($approvers === []) {
+            throw SubmissionNotReviewableException::withoutReviewers($submission);
         }
 
         $request = $submission->requestApproval($approvers, $rule, $quorum);

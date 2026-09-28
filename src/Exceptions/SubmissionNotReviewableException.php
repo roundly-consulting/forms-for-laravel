@@ -14,4 +14,15 @@ final class SubmissionNotReviewableException extends FormsException
             'uuid' => $submission->uuid,
         ]));
     }
+
+    /**
+     * A review that names nobody would be open to any approver — the submitter included —
+     * so it is refused rather than opened.
+     */
+    public static function withoutReviewers(FormSubmission $submission): self
+    {
+        return new self((string) trans('forms::messages.submission_review_without_reviewers', [
+            'uuid' => $submission->uuid,
+        ]));
+    }
 }
