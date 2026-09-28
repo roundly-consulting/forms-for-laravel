@@ -44,6 +44,18 @@
         },
         {
             "type": "path",
+            "url": "../crypto-for-laravel*",
+            "options": {
+                "symlink": true
+            }
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/roundly-consulting/crypto-for-laravel",
+            "no-api": true
+        },
+        {
+            "type": "path",
             "url": "../media-library-for-laravel*",
             "options": {
                 "symlink": true
