@@ -9,6 +9,8 @@ use RoundlyConsulting\Attributes\Enums\AttributeType;
 use RoundlyConsulting\Forms\Actions\StoreSubmissionAction;
 use RoundlyConsulting\Forms\Actions\ValidateFieldTypesAction;
 use RoundlyConsulting\Forms\Exceptions\InvalidFieldValueException;
+use RoundlyConsulting\Forms\Facades\Forms;
+use RoundlyConsulting\Forms\GroupBuilder;
 use RoundlyConsulting\Forms\Models\Field;
 use RoundlyConsulting\Forms\Models\Form;
 use RoundlyConsulting\Forms\Models\Group;
@@ -112,3 +114,47 @@ it('accepts a valid value and ignores null and hidden fields', function () {
     // A null value is skipped entirely rather than raising.
     app(ValidateFieldTypesAction::class)->execute($form, Request::create('t'));
 })->throwsNoExceptions();
+
+/*
+ * Review fixes (2026-09-28) — one bad stored value must not break reading a whole form's
+ * submissions. A hidden conditional field skips validation, so its raw input is no longer
+ * stored; and a typed read that cannot convert a value hands back that value as stored
+ * instead of throwing.
+ */
+
+it('does not store the input of a field its conditions hide', function () {
+    $form = Forms::define('kyc', 'KYC')
+        ->public()
+        ->group('main', 'Main', function (GroupBuilder $g): void {
+            $g->field('adult', 'Adult');
+            $g->field('born', 'Born')->date()->visibleWhen('adult', 'yes');
+        })
+        ->create();
+
+    $request = Request::create('t', 'POST', ['kyc' => ['main' => ['adult' => 'no', 'born' => 'garbage']]]);
+
+    expect(Forms::validate($form, $request))->toBe([]);
+
+    Forms::submit($form, $request);
+
+    expect(Forms::submissions($form)->first()?->values)->toBe(['adult' => 'no', 'born' => null]);
+});
+
+it('degrades a typed read per value instead of failing the whole reader', function (string $type, mixed $stored) {
+    $field = typedField($type);
+    $form = $field->form->fresh();
+    $name = Field::factory()->for($form)->for($field->group)->create(['key' => 'name', 'type' => 'text']);
+    $uuid = Str::orderedUuid()->toString();
+
+    Forms::createSubmission($field, ['value' => $stored], uuid: $uuid);
+    Forms::createSubmission($name, ['value' => 'Ann'], uuid: $uuid);
+
+    expect(Forms::submissions($form)->first()?->values)->toEqual(['answer' => $stored, 'name' => 'Ann']);
+})->with([
+    'date' => ['date', 'garbage'],
+    'number' => ['number', 'forty-two'],
+    'decimal number' => ['number', '3.5'],
+    'float' => ['float', 'n/a'],
+    'checkbox' => ['checkbox', 'maybe'],
+    'multiselect' => ['multiselect', '{not json'],
+]);

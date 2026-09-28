@@ -30,26 +30,31 @@ final readonly class StoreSubmissionAction
 
         $uuid = Str::orderedUuid()->toString();
 
-        $fieldCount = $form->getConnection()->transaction(function () use ($form, $request, $sender, $uuid): int {
+        $input = $request->all();
+
+        $fieldCount = $form->getConnection()->transaction(function () use ($form, $request, $sender, $uuid, $input): int {
             $aggregate = $this->createFormSubmission->execute($form, $uuid, $sender, SubmissionStatus::Final);
 
             return $form
                 ->fields
-                ->each(function (Field $field) use ($aggregate, $uuid, $request, $sender): void {
+                ->each(function (Field $field) use ($aggregate, $uuid, $request, $sender, $input): void {
+                    // A field its conditions hide is skipped by validation, so whatever the
+                    // request carries for it is unchecked: it has no answer, and none is kept.
+                    $visible = $field->isVisible($input);
                     $resolver = $field->resolver();
 
                     $submission = $this->createSubmission->execute(
                         SubmissionData::forField(
                             $field,
                             $uuid,
-                            $resolver->toStorable($request, $sender),
+                            $visible ? $resolver->toStorable($request, $sender) : ['value' => null],
                             $sender,
                             SubmissionStatus::Final,
                             $aggregate->getKey(),
                         ),
                     );
 
-                    if ($resolver instanceof AttachesToSubmission) {
+                    if ($visible && $resolver instanceof AttachesToSubmission) {
                         $resolver->attach($submission, $request, $sender);
                     }
                 })

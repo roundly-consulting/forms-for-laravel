@@ -25,6 +25,8 @@ use RoundlyConsulting\Forms\Support\FieldModel;
 use RoundlyConsulting\Forms\Support\FormModel;
 use RoundlyConsulting\Forms\Support\GroupModel;
 use RoundlyConsulting\Forms\Support\SubmissionModel;
+use Throwable;
+use UnexpectedValueException;
 
 /**
  * @property int $id
@@ -217,6 +219,11 @@ class Field extends Model
      * Cast a raw stored value to the real PHP type mapped from this field, using
      * attributes-for-laravel as the type system for the common string-column
      * case and a defensive cast for already-typed JSON values.
+     *
+     * A value that does not convert cleanly — a date that doesn't parse, a number that
+     * isn't one, a decimal in an integer field, a malformed JSON list — is handed back
+     * exactly as stored rather than coerced (`'abc'` never reads as `0`) or thrown, so
+     * one bad answer never breaks reading every other submission of the form.
      */
     public function castStoredValue(mixed $raw): mixed
     {
@@ -230,18 +237,43 @@ class Field extends Model
             return $raw;
         }
 
-        if (is_string($raw)) {
-            return $type->fromStorage($raw);
+        try {
+            return $this->convertStoredValue($type, $raw);
+        } catch (Throwable) {
+            return $raw;
         }
+    }
 
+    /**
+     * @throws UnexpectedValueException when the value does not convert to `$type`
+     */
+    private function convertStoredValue(AttributeType $type, mixed $raw): mixed
+    {
         return match ($type) {
-            AttributeType::Array_ => (array) $raw,
-            AttributeType::Boolean => (bool) $raw,
-            AttributeType::Integer => (int) $raw,
-            AttributeType::Float_ => (float) $raw,
-            AttributeType::DateTime => $raw instanceof DateTimeInterface
-                ? Carbon::instance($raw)->toImmutable()
-                : $raw,
+            AttributeType::Integer => match (true) {
+                is_int($raw) => $raw,
+                is_float($raw) && floor($raw) === $raw => (int) $raw,
+                is_string($raw) && filter_var($raw, FILTER_VALIDATE_INT) !== false => (int) $raw,
+                default => throw new UnexpectedValueException('not an integer'),
+            },
+            AttributeType::Float_ => is_int($raw) || is_float($raw) || (is_string($raw) && is_numeric($raw))
+                ? (float) $raw
+                : throw new UnexpectedValueException('not a number'),
+            AttributeType::Boolean => is_bool($raw)
+                ? $raw
+                : (is_scalar($raw) ? filter_var($raw, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) : null)
+                    ?? throw new UnexpectedValueException('not a boolean'),
+            AttributeType::Array_ => match (true) {
+                is_array($raw) => $raw,
+                is_string($raw) && json_validate($raw) && is_array(json_decode($raw, true)) => $type->fromStorage($raw),
+                default => throw new UnexpectedValueException('not a list'),
+            },
+            AttributeType::DateTime => match (true) {
+                $raw instanceof DateTimeInterface => Carbon::instance($raw)->toImmutable(),
+                is_string($raw) => $type->fromStorage($raw),
+                default => throw new UnexpectedValueException('not a date'),
+            },
+            AttributeType::String_ => $raw,
         };
     }
 
