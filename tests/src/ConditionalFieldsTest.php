@@ -117,3 +117,62 @@ it('supports visibleWhen with operators', function () {
     expect($guardian->isVisible(['quiz' => ['g' => ['age' => 18]]]))->toBeTrue()
         ->and($guardian->isVisible(['quiz' => ['g' => ['age' => 30]]]))->toBeFalse();
 });
+
+/*
+ * Review fixes (2026-09-28) — a condition may reference a field in another group (step) of
+ * the same form. It used to build the path from the dependent field's own group, so a
+ * cross-step condition never matched: the field stayed hidden and its `required` was skipped.
+ */
+
+function multiStepForm(): void
+{
+    Forms::define('signup', 'Signup')
+        ->public()
+        ->group('step1', 'Where', function (GroupBuilder $g): void {
+            $g->field('country', 'Country');
+        })
+        ->group('step2', 'Details', function (GroupBuilder $g): void {
+            $g->field('state', 'State')->requiredWhen('country', 'US');
+            $g->field('zip', 'Zip')->requiredWhen('step1.country', 'US');
+        })
+        ->create();
+}
+
+it('enforces a condition on a field in another group of the same form', function () {
+    multiStepForm();
+    $form = Forms::find('signup');
+
+    expect(fn () => Forms::validate($form, Request::create('t', parameters: [
+        'signup' => ['step1' => ['country' => 'US']],
+    ])))->toThrow(ValidationException::class, 'The State field is required');
+
+    expect(Forms::validate($form, Request::create('t', parameters: [
+        'signup' => ['step1' => ['country' => 'CZ']],
+    ])))->toBe([]);
+});
+
+it('resolves an explicit group.field reference across groups', function () {
+    multiStepForm();
+    $zip = Field::query()->where('key', 'zip')->sole();
+
+    expect($zip->isVisible(['signup' => ['step1' => ['country' => 'US']]]))->toBeTrue()
+        ->and($zip->isVisible(['signup' => ['step1' => ['country' => 'CZ']]]))->toBeFalse();
+});
+
+it('prefers the dependent field\'s own group when two groups share the referenced key', function () {
+    Forms::define('family', 'Family')
+        ->public()
+        ->group('applicant', 'Applicant', function (GroupBuilder $g): void {
+            $g->field('minor', 'Minor');
+        })
+        ->group('guardian', 'Guardian', function (GroupBuilder $g): void {
+            $g->field('minor', 'Minor');
+            $g->field('consent', 'Consent')->visibleWhen('minor', 'yes');
+        })
+        ->create();
+
+    $consent = Field::query()->where('key', 'consent')->sole();
+
+    expect($consent->isVisible(['family' => ['guardian' => ['minor' => 'yes'], 'applicant' => ['minor' => 'no']]]))->toBeTrue()
+        ->and($consent->isVisible(['family' => ['guardian' => ['minor' => 'no'], 'applicant' => ['minor' => 'yes']]]))->toBeFalse();
+});

@@ -21,6 +21,7 @@ use RoundlyConsulting\Forms\Events\FieldDeleted;
 use RoundlyConsulting\Forms\Events\FieldUpdated;
 use RoundlyConsulting\Forms\Exceptions\UnresolvableFieldException;
 use RoundlyConsulting\Forms\Resolvers\Resolver;
+use RoundlyConsulting\Forms\Support\FieldModel;
 use RoundlyConsulting\Forms\Support\FormModel;
 use RoundlyConsulting\Forms\Support\GroupModel;
 use RoundlyConsulting\Forms\Support\SubmissionModel;
@@ -94,10 +95,18 @@ class Field extends Model
     }
 
     /**
+     * Condition references already resolved to a request path, per reference.
+     *
+     * @var array<string, string>
+     */
+    private array $conditionPaths = [];
+
+    /**
      * Decide whether this field is visible for the given request payload by
      * evaluating its stored conditions. A field with no conditions is always
      * visible. Conditions are matched against the dotted form path of the
-     * referenced field.
+     * referenced field, which may live in any group of the same form (see
+     * {@see self::conditionPath()}).
      *
      * @param  array<array-key, mixed>  $input
      */
@@ -121,8 +130,7 @@ class Field extends Model
                 continue;
             }
 
-            $path = implode('.', [$this->form->key, $this->group->key, $field]);
-            $actual = data_get($input, $path);
+            $actual = data_get($input, $this->conditionPath($field));
 
             if (! $this->matchesCondition($actual, $condition)) {
                 return false;
@@ -130,6 +138,44 @@ class Field extends Model
         }
 
         return true;
+    }
+
+    /**
+     * The request path of the field a condition references. `group.field` names it
+     * exactly; a bare `field` key is looked up in this field's own group first, then in
+     * the form's other groups (the first by group order), so a later step can depend on
+     * an earlier one. A key no live field of the form carries resolves inside this
+     * field's own group, where it reads as absent.
+     */
+    private function conditionPath(string $reference): string
+    {
+        return $this->conditionPaths[$reference] ??= $this->resolveConditionPath($reference);
+    }
+
+    private function resolveConditionPath(string $reference): string
+    {
+        if (str_contains($reference, '.')) {
+            return $this->form->key.'.'.$reference;
+        }
+
+        $fieldModel = FieldModel::class();
+
+        $target = $fieldModel::query()
+            ->where('form_id', $this->form_id)
+            ->where('key', $reference)
+            ->with('group')
+            ->get()
+            ->reject(fn (Field $field): bool => $field->group->trashed())
+            ->sortBy([
+                fn (Field $a, Field $b): int => ((string) $b->group_id === (string) $this->group_id) <=> ((string) $a->group_id === (string) $this->group_id),
+                fn (Field $a, Field $b): int => $a->group->order <=> $b->group->order,
+                fn (Field $a, Field $b): int => $a->group_id <=> $b->group_id,
+            ])
+            ->first();
+
+        $group = $target instanceof Field ? $target->group : $this->group;
+
+        return implode('.', [$this->form->key, $group->key, $reference]);
     }
 
     /** @param  array<string, mixed>  $condition */

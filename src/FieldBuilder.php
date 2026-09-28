@@ -129,7 +129,9 @@ final class FieldBuilder
     }
 
     /**
-     * Show this field only when another field in the same form equals a value.
+     * Show this field only when another field of the same form matches a value. `$field` is
+     * that field's key — looked up in this field's group first, then in the form's other
+     * groups — or `group_key.field_key` to name it exactly.
      */
     public function visibleWhen(string $field, mixed $value, string $operator = '='): self
     {
@@ -143,9 +145,9 @@ final class FieldBuilder
     }
 
     /**
-     * Require this field only when another field equals a value. Pairs the
-     * stored condition with a `required` rule that the validator enforces when
-     * the condition is met.
+     * Require this field only when another field of the same form matches a value (the
+     * reference resolves as in {@see self::visibleWhen()}). Pairs the stored condition with
+     * a `required` rule that the validator enforces when the condition is met.
      */
     public function requiredWhen(string $field, mixed $value, string $operator = '='): self
     {
