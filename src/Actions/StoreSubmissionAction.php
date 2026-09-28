@@ -15,11 +15,11 @@ use RoundlyConsulting\Forms\Models\Field;
 use RoundlyConsulting\Forms\Models\Form;
 use RoundlyConsulting\Forms\Resolvers\AttachesToSubmission;
 
-final class StoreSubmissionAction
+final readonly class StoreSubmissionAction
 {
     public function __construct(
-        private readonly CreateSubmissionAction $createSubmission = new CreateSubmissionAction,
-        private readonly CreateFormSubmissionAction $createFormSubmission = new CreateFormSubmissionAction,
+        private CreateSubmissionAction $createSubmission,
+        private CreateFormSubmissionAction $createFormSubmission,
     ) {}
 
     public function execute(Form $form, Request $request, ?Model $sender = null, bool $bypassClosed = false): SubmissionResult

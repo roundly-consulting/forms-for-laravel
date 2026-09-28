@@ -20,7 +20,7 @@ use RoundlyConsulting\Forms\Models\FormSubmission;
  * the {@see SyncSubmissionStatusFromApproval}
  * listener as decisions come in.
  */
-final class ReviewSubmissionAction
+final readonly class ReviewSubmissionAction
 {
     /** @param  list<Model>  $approvers */
     public function execute(

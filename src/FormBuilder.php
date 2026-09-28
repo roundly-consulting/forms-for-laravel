@@ -6,11 +6,14 @@ namespace RoundlyConsulting\Forms;
 
 use Carbon\CarbonInterface;
 use Closure;
-use RoundlyConsulting\Forms\Actions\CreateFormAction;
 use RoundlyConsulting\Forms\DataTransferObjects\FormDefinitionData;
 use RoundlyConsulting\Forms\DataTransferObjects\GroupDefinitionData;
 use RoundlyConsulting\Forms\Models\Form;
 
+/**
+ * `Forms::define($key, $name)` — a fluent form definition; `create()` stores it through
+ * the manager, so host overrides and `Forms::fake()` see it.
+ */
 final class FormBuilder
 {
     private ?CarbonInterface $expiresAt = null;
@@ -20,8 +23,11 @@ final class FormBuilder
     /** @var list<GroupBuilder> */
     private array $groups = [];
 
+    /**
+     * @internal build it with `Forms::define($key, $name)`
+     */
     public function __construct(
-        private readonly CreateFormAction $createForm,
+        private readonly FormsManager $forms,
         private readonly string $key,
         private readonly string $name,
     ) {}
@@ -71,6 +77,6 @@ final class FormBuilder
 
     public function create(): Form
     {
-        return $this->createForm->execute($this->toData());
+        return $this->forms->create($this->toData());
     }
 }

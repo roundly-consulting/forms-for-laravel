@@ -4,28 +4,32 @@ declare(strict_types=1);
 
 namespace RoundlyConsulting\Forms\Testing;
 
+use Illuminate\Contracts\Container\Container;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use PHPUnit\Framework\Assert;
+use RoundlyConsulting\Approvals\Enums\ApprovalRule;
+use RoundlyConsulting\Approvals\Models\ApprovalRequest;
 use RoundlyConsulting\Forms\DataTransferObjects\FormDefinitionData;
 use RoundlyConsulting\Forms\DataTransferObjects\SubmissionResult;
 use RoundlyConsulting\Forms\FormBuilder;
+use RoundlyConsulting\Forms\FormsManager;
 use RoundlyConsulting\Forms\Models\Field;
 use RoundlyConsulting\Forms\Models\Form;
+use RoundlyConsulting\Forms\Models\FormSubmission;
 use RoundlyConsulting\Forms\Models\Submission;
-use RoundlyConsulting\Forms\Services\FormsService;
-use RoundlyConsulting\Forms\UpdateFormBuilder;
 
 /**
- * A recording, still-performing variant of {@see FormsService} for host-app
- * tests. Operations run against the database as usual while the fake records
- * intent so assertions can verify it — matching Laravel's `*::fake()`
- * ergonomics (see {@see FormsService::fake()}).
+ * A recording, still-performing {@see FormsManager} for host-app tests, installed by
+ * `Forms::fake()`. Operations run against the database as usual (a review still opens
+ * its approvals request) while the fake records each one — made through the facade, an
+ * injected manager, a builder, a submission handle, the HasForms trait or `forms:sync` —
+ * so assertions can verify it.
  *
  * It lives in src/ so host apps can use it; it depends only on PHPUnit's
  * Assert, which is always present in a Laravel app's dev dependencies.
  */
-final class FormsFake extends FormsService
+final class FormsFake extends FormsManager
 {
     /** @var list<array{key: string, name: string}> */
     private array $defined = [];
@@ -51,6 +55,14 @@ final class FormsFake extends FormsService
     /** @var list<Submission> */
     private array $createdSubmissions = [];
 
+    /** @var list<array{submission: FormSubmission, request: ApprovalRequest}> */
+    private array $reviewed = [];
+
+    public function __construct(Container $container)
+    {
+        parent::__construct($container);
+    }
+
     public function define(string $key, string $name): FormBuilder
     {
         $this->defined[] = ['key' => $key, 'name' => $name];
@@ -67,11 +79,13 @@ final class FormsFake extends FormsService
         return $form;
     }
 
-    public function update(string $key): UpdateFormBuilder
+    public function updateFrom(FormDefinitionData $data): Form
     {
-        $this->updated[] = $key;
+        $form = parent::updateFrom($data);
 
-        return parent::update($key);
+        $this->updated[] = $data->key;
+
+        return $form;
     }
 
     public function submit(Form $form, Request $request, ?Model $sender = null, bool $bypassClosed = false): SubmissionResult
@@ -122,6 +136,16 @@ final class FormsFake extends FormsService
         $this->createdSubmissions[] = $submission;
 
         return $submission;
+    }
+
+    /** @param  list<Model>  $approvers */
+    public function openReview(FormSubmission $submission, array $approvers, ApprovalRule $rule = ApprovalRule::Unanimous, ?int $quorum = null): ApprovalRequest
+    {
+        $request = parent::openReview($submission, $approvers, $rule, $quorum);
+
+        $this->reviewed[] = ['submission' => $submission, 'request' => $request];
+
+        return $request;
     }
 
     /**
@@ -265,6 +289,67 @@ final class FormsFake extends FormsService
     public function assertSynced(): void
     {
         Assert::assertNotEmpty($this->synced, 'Expected forms to be synced, but sync() was never called.');
+    }
+
+    public function assertNothingDrafted(): void
+    {
+        Assert::assertEmpty($this->drafted, 'Expected nothing to be drafted.');
+    }
+
+    public function assertNothingFinalized(): void
+    {
+        Assert::assertEmpty($this->finalized, 'Expected nothing to be finalized.');
+    }
+
+    public function assertNoFormDefined(): void
+    {
+        Assert::assertEmpty($this->defined, 'Expected no form to be defined.');
+    }
+
+    public function assertNoFormCreated(): void
+    {
+        Assert::assertEmpty($this->created, 'Expected no form to be created.');
+    }
+
+    public function assertNoFormUpdated(): void
+    {
+        Assert::assertEmpty($this->updated, 'Expected no form to be updated.');
+    }
+
+    public function assertNoSubmissionCreated(): void
+    {
+        Assert::assertEmpty($this->createdSubmissions, 'Expected no submission row to be created.');
+    }
+
+    public function assertNothingSynced(): void
+    {
+        Assert::assertEmpty($this->synced, 'Expected nothing to be synced.');
+    }
+
+    /**
+     * Assert a review was opened — optionally matching a callback that receives the
+     * opened {@see ApprovalRequest} and the {@see FormSubmission} under review.
+     */
+    public function assertReviewOpened(?callable $callback = null): void
+    {
+        Assert::assertNotEmpty($this->reviewed, 'Expected a review to be opened, but none were.');
+
+        if ($callback === null) {
+            return;
+        }
+
+        foreach ($this->reviewed as $review) {
+            if ($callback($review['request'], $review['submission']) === true) {
+                return;
+            }
+        }
+
+        Assert::fail('Expected a review matching the callback, but none did.');
+    }
+
+    public function assertNothingReviewed(): void
+    {
+        Assert::assertEmpty($this->reviewed, 'Expected no review to be opened.');
     }
 
     /**

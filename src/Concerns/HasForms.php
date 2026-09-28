@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Http\Request;
 use RoundlyConsulting\Forms\DataTransferObjects\SubmissionResult;
-use RoundlyConsulting\Forms\Facades\Forms;
+use RoundlyConsulting\Forms\FormsManager;
 use RoundlyConsulting\Forms\Models\Form;
 use RoundlyConsulting\Forms\Models\Submission;
 use RoundlyConsulting\Forms\Support\SubmissionModel;
@@ -29,11 +29,11 @@ trait HasForms
 
     public function submitTo(Form $form, Request $request, bool $bypassClosed = false): SubmissionResult
     {
-        return Forms::submit($form, $request, $this, $bypassClosed);
+        return app(FormsManager::class)->submit($form, $request, $this, $bypassClosed);
     }
 
     public function draftTo(Form $form, Request $request, ?string $uuid = null, bool $bypassClosed = false): SubmissionResult
     {
-        return Forms::draft($form, $request, $this, $uuid, $bypassClosed);
+        return app(FormsManager::class)->draft($form, $request, $this, $uuid, $bypassClosed);
     }
 }

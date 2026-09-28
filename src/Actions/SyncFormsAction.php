@@ -11,11 +11,11 @@ use RoundlyConsulting\Forms\Support\FormModel;
  * Syncs declaratively-defined forms (from config or a passed list) into the
  * database: creates missing forms and updates changed ones. Idempotent.
  */
-final class SyncFormsAction
+final readonly class SyncFormsAction
 {
     public function __construct(
-        private readonly CreateFormAction $createForm = new CreateFormAction,
-        private readonly UpdateFormAction $updateForm = new UpdateFormAction,
+        private CreateFormAction $createForm,
+        private UpdateFormAction $updateForm,
     ) {}
 
     /**

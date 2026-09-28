@@ -9,10 +9,10 @@ use Illuminate\Support\Collection;
 use RoundlyConsulting\Forms\Models\Field;
 use RoundlyConsulting\Forms\Models\Form;
 
-final class ValidateSubmissionAction
+final readonly class ValidateSubmissionAction
 {
     public function __construct(
-        private readonly ValidateFieldTypesAction $validateFieldTypes = new ValidateFieldTypesAction,
+        private ValidateFieldTypesAction $validateFieldTypes,
     ) {}
 
     /**

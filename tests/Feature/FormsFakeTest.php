@@ -6,10 +6,10 @@ use Illuminate\Http\Request;
 use PHPUnit\Framework\AssertionFailedError;
 use RoundlyConsulting\Forms\DataTransferObjects\FormDefinitionData;
 use RoundlyConsulting\Forms\Facades\Forms;
+use RoundlyConsulting\Forms\FormsManager;
 use RoundlyConsulting\Forms\GroupBuilder;
 use RoundlyConsulting\Forms\Models\Field;
 use RoundlyConsulting\Forms\Models\Form;
-use RoundlyConsulting\Forms\Services\FormsService;
 use RoundlyConsulting\Forms\Testing\FormsFake;
 
 function fakeContactForm(): Form
@@ -31,10 +31,10 @@ function fakeRequest(Form $form, array $values): Request
 it('swaps the bound manager for a recording fake', function () {
     $fake = Forms::fake();
 
-    // `forms.manager` is aliased to FormsService::class, so resolving the typed
-    // alias proves the container binding was swapped for the fake.
+    // Resolving the manager class proves the container binding was swapped for the
+    // fake, so constructor-injected managers see it too.
     expect($fake)->toBeInstanceOf(FormsFake::class);
-    expect(app(FormsService::class))->toBe($fake);
+    expect(app(FormsManager::class))->toBe($fake);
 });
 
 it('records a fluent form definition', function () {

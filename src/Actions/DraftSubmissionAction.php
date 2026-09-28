@@ -23,11 +23,11 @@ use RoundlyConsulting\Forms\Support\SubmissionModel;
  * Saves a partial submission as a draft without running validation, so a
  * sender can resume and finalize it later.
  */
-final class DraftSubmissionAction
+final readonly class DraftSubmissionAction
 {
     public function __construct(
-        private readonly CreateSubmissionAction $createSubmission = new CreateSubmissionAction,
-        private readonly CreateFormSubmissionAction $createFormSubmission = new CreateFormSubmissionAction,
+        private CreateSubmissionAction $createSubmission,
+        private CreateFormSubmissionAction $createFormSubmission,
     ) {}
 
     /**

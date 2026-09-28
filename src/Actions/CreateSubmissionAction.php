@@ -8,7 +8,7 @@ use RoundlyConsulting\Forms\DataTransferObjects\SubmissionData;
 use RoundlyConsulting\Forms\Models\Submission;
 use RoundlyConsulting\Forms\Support\SubmissionModel;
 
-final class CreateSubmissionAction
+final readonly class CreateSubmissionAction
 {
     public function execute(SubmissionData $data): Submission
     {

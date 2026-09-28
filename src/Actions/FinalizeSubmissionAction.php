@@ -19,10 +19,10 @@ use RoundlyConsulting\Forms\Support\SubmissionModel;
  * Promotes a draft submission to a final one, running full validation against
  * the values stored on the draft before it is finalized.
  */
-final class FinalizeSubmissionAction
+final readonly class FinalizeSubmissionAction
 {
     public function __construct(
-        private readonly ValidateSubmissionAction $validateSubmission = new ValidateSubmissionAction,
+        private ValidateSubmissionAction $validateSubmission,
     ) {}
 
     /**

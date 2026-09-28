@@ -22,20 +22,6 @@ it('ships exactly the config keys it reads', function (): void {
         // scraper.
         'extraReadPrefixes' => ['forms.'],
 
-        // `forms.manager` is a CONTAINER BINDING alias, not a config key:
-        // `$this->app->singleton('forms.manager', …)` plus its `alias()`. It only appears
-        // here because `extraReadPrefixes` (needed for the model seam above) treats every
-        // literal starting `forms.` as a read, and a binding name is shape-identical to one.
-        //
-        // Allow-listed rather than renamed: `app('forms.manager')` is a resolvable name a
-        // host may already use, and renaming it to quiet a test would be a real break for an
-        // imaginary problem. The entry is rot-proof — `assertAllowUnshippedIsLive` fails if
-        // the binding ever goes away, so this cannot silently outlive what it excuses.
-        //
-        // Forms is the only package in the fleet with this shape (swept, explicit paths), so
-        // it is a row detail, not a testing-package defect.
-        'allowUnshipped' => ['forms.manager'],
-
         // `Field::resolver()` reads the resolver map wholesale and then falls back to a
         // LITERAL offset: `$resolvers[$this->type] ?? $resolvers['default']`. Declaring the
         // variable proves `forms.fields.default` is genuinely read by name rather than

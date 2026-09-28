@@ -19,8 +19,10 @@ use RoundlyConsulting\Forms\Models\Form;
  * `number` field, etc.) that Laravel's own field rules may not cover. Fields
  * whose type maps to a plain string are skipped — they keep the historical
  * free-form behaviour.
+ *
+ * @internal a building block of ValidateSubmissionAction; hosts go through `Forms::validate()`.
  */
-final class ValidateFieldTypesAction
+final readonly class ValidateFieldTypesAction
 {
     public function execute(Form $form, Request $request): void
     {

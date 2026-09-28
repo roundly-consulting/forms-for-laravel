@@ -7,18 +7,19 @@ namespace RoundlyConsulting\Forms;
 use Illuminate\Database\Eloquent\Model;
 use RoundlyConsulting\Approvals\Enums\ApprovalRule;
 use RoundlyConsulting\Approvals\Models\ApprovalRequest;
-use RoundlyConsulting\Forms\Actions\ReviewSubmissionAction;
 use RoundlyConsulting\Forms\Models\FormSubmission;
 
 /**
  * Fluent builder for routing a whole submission through the approvals engine:
  *
  * ```php
- * Forms::review($submission)
+ * Forms::review($submission)          // or Forms::submission($uuid)->review()
  *     ->requiring([$lead, $qa])
  *     ->quorum(2)
  *     ->open();
  * ```
+ *
+ * `open()` goes through the manager, so host overrides and `Forms::fake()` see it.
  */
 final class PendingSubmissionReview
 {
@@ -29,9 +30,12 @@ final class PendingSubmissionReview
 
     private ?int $quorum = null;
 
+    /**
+     * @internal build it with `Forms::review($submission)`
+     */
     public function __construct(
+        private readonly FormsManager $forms,
         private readonly FormSubmission $submission,
-        private readonly ReviewSubmissionAction $action = new ReviewSubmissionAction,
     ) {}
 
     /** @param  list<Model>  $approvers */
@@ -77,6 +81,6 @@ final class PendingSubmissionReview
 
     public function open(): ApprovalRequest
     {
-        return $this->action->execute($this->submission, $this->approvers, $this->rule, $this->quorum);
+        return $this->forms->openReview($this->submission, $this->approvers, $this->rule, $this->quorum);
     }
 }

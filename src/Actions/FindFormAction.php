@@ -15,7 +15,7 @@ use RoundlyConsulting\Forms\Models\Form;
 use RoundlyConsulting\Forms\Models\Group;
 use RoundlyConsulting\Forms\Support\FormModel;
 
-final class FindFormAction
+final readonly class FindFormAction
 {
     public function execute(string $key): Form
     {

@@ -15,8 +15,10 @@ use RoundlyConsulting\Forms\Support\FormSubmissionModel;
  * Creates (or resumes) the {@see FormSubmission} aggregate that groups the
  * per-field submission rows sharing a `uuid` and carries the submission's
  * lifecycle status.
+ *
+ * @internal a building block of submit() / draft(); hosts go through `Forms::submit()`.
  */
-final class CreateFormSubmissionAction
+final readonly class CreateFormSubmissionAction
 {
     public function execute(Form $form, string $uuid, ?Model $sender = null, SubmissionStatus $status = SubmissionStatus::Final): FormSubmission
     {

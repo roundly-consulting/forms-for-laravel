@@ -5,13 +5,14 @@ declare(strict_types=1);
 use Illuminate\Foundation\AliasLoader;
 use Illuminate\Support\ServiceProvider;
 use RoundlyConsulting\Forms\Facades\Forms;
+use RoundlyConsulting\Forms\FormsManager;
 use RoundlyConsulting\Forms\FormsServiceProvider;
 use RoundlyConsulting\Forms\Models\Form;
-use RoundlyConsulting\Forms\Services\FormsService;
 
 it('registers the forms manager as a singleton', function (): void {
-    expect(app('forms.manager'))->toBeInstanceOf(FormsService::class)
-        ->and(app('forms.manager'))->toBe(app(FormsService::class));
+    expect(app(FormsManager::class))->toBeInstanceOf(FormsManager::class)
+        ->and(app(FormsManager::class))->toBe(app(FormsManager::class))
+        ->and(Forms::getFacadeRoot())->toBe(app(FormsManager::class));
 });
 
 it('merges the packaged config', function (): void {

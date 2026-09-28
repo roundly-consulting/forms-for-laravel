@@ -20,7 +20,7 @@ use RoundlyConsulting\Forms\Support\GroupModel;
  * missing ones are created. Eloquent's model events fire for every changed
  * record. Records absent from the definition are left untouched.
  */
-final class UpdateFormAction
+final readonly class UpdateFormAction
 {
     public function execute(FormDefinitionData $data): Form
     {

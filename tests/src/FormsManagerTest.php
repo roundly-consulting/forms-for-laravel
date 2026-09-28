@@ -6,11 +6,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Validation\ValidationException;
 use RoundlyConsulting\Forms\Events\FormSubmitted;
+use RoundlyConsulting\Forms\FormsManager;
 use RoundlyConsulting\Forms\Models\Field;
 use RoundlyConsulting\Forms\Models\Form;
 use RoundlyConsulting\Forms\Models\Group;
 use RoundlyConsulting\Forms\Models\Submission;
-use RoundlyConsulting\Forms\Services\FormsService;
 
 beforeEach(function () {
     $form = Form::factory()->public()->create(['key' => 'myform']);
@@ -22,8 +22,8 @@ beforeEach(function () {
 });
 
 it('finds form with groups and fields by key', function () {
-    /** @var FormsService $fs */
-    $fs = resolve(FormsService::class);
+    /** @var FormsManager $fs */
+    $fs = resolve(FormsManager::class);
 
     $instance = $fs->find('myform');
 
@@ -33,8 +33,8 @@ it('finds form with groups and fields by key', function () {
 });
 
 it('it validates fields', function () {
-    /** @var FormsService $fs */
-    $fs = resolve(FormsService::class);
+    /** @var FormsManager $fs */
+    $fs = resolve(FormsManager::class);
 
     $form = $fs->find('myform');
 
@@ -51,8 +51,8 @@ it('it validates fields', function () {
 })->throws(ValidationException::class);
 
 it('creates single submission of field', function () {
-    /** @var FormsService $fs */
-    $fs = resolve(FormsService::class);
+    /** @var FormsManager $fs */
+    $fs = resolve(FormsManager::class);
 
     $form = $fs->find('myform');
 
@@ -74,8 +74,8 @@ it('creates single submission of field', function () {
 });
 
 it('creates full form submission', function () {
-    /** @var FormsService $fs */
-    $fs = resolve(FormsService::class);
+    /** @var FormsManager $fs */
+    $fs = resolve(FormsManager::class);
 
     Event::fake();
 

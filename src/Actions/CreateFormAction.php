@@ -14,7 +14,7 @@ use RoundlyConsulting\Forms\Support\FieldModel;
 use RoundlyConsulting\Forms\Support\FormModel;
 use RoundlyConsulting\Forms\Support\GroupModel;
 
-final class CreateFormAction
+final readonly class CreateFormAction
 {
     public function execute(FormDefinitionData $data): Form
     {

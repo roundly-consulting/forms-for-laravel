@@ -6,14 +6,14 @@ namespace RoundlyConsulting\Forms;
 
 use Carbon\CarbonInterface;
 use Closure;
-use RoundlyConsulting\Forms\Actions\UpdateFormAction;
 use RoundlyConsulting\Forms\DataTransferObjects\FormDefinitionData;
 use RoundlyConsulting\Forms\DataTransferObjects\GroupDefinitionData;
 use RoundlyConsulting\Forms\Models\Form;
 
 /**
  * Fluent editor for an existing form. Mirrors FormBuilder ergonomics but the
- * resulting definition is diffed against the persisted structure on save().
+ * resulting definition is diffed against the persisted structure on save(), which goes
+ * through the manager so host overrides and `Forms::fake()` see it.
  */
 final class UpdateFormBuilder
 {
@@ -26,8 +26,11 @@ final class UpdateFormBuilder
     /** @var list<GroupBuilder> */
     private array $groups = [];
 
+    /**
+     * @internal build it with `Forms::update($key)`
+     */
     public function __construct(
-        private readonly UpdateFormAction $updateForm,
+        private readonly FormsManager $forms,
         private readonly Form $form,
     ) {}
 
@@ -83,6 +86,6 @@ final class UpdateFormBuilder
 
     public function save(): Form
     {
-        return $this->updateForm->execute($this->toData());
+        return $this->forms->updateFrom($this->toData());
     }
 }

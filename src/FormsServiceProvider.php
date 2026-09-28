@@ -9,7 +9,6 @@ use RoundlyConsulting\Approvals\Events\ApprovalRequestResolved;
 use RoundlyConsulting\Forms\Commands\SyncFormsCommand;
 use RoundlyConsulting\Forms\Facades\Forms;
 use RoundlyConsulting\Forms\Listeners\SyncSubmissionStatusFromApproval;
-use RoundlyConsulting\Forms\Services\FormsService;
 use RoundlyConsulting\Forms\Support\FieldModel;
 use RoundlyConsulting\Forms\Support\FormModel;
 use RoundlyConsulting\Forms\Support\FormSubmissionModel;
@@ -62,8 +61,7 @@ final class FormsServiceProvider extends PackageServiceProvider
     {
         parent::register();
 
-        $this->app->singleton('forms.manager', fn (): FormsService => new FormsService);
-        $this->app->alias('forms.manager', FormsService::class);
+        $this->app->singleton(FormsManager::class);
     }
 
     public function boot(): void
