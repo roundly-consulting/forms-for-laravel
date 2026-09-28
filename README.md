@@ -293,8 +293,45 @@ $result->fieldCount;  // number of fields stored
 $result->submittedAt; // CarbonInterface timestamp
 ```
 
-`RoundlyConsulting\Forms\Services\FormsService` (the object behind the facade) exposes the same
-API and can be resolved from the container directly.
+| Method | Does |
+|---|---|
+| `find($key)` | a form with its ordered groups and fields |
+| `define($key, $name)` → `->create()` | a fluent new form (`FormBuilder`) |
+| `create(FormDefinitionData)` | a form from a definition |
+| `update($key)` → `->save()` | a fluent structural edit (`UpdateFormBuilder`) |
+| `sync(?array $definitions = null)` | create/update forms from `forms.definitions` |
+| `validate($form, $request)` | validated data, or a `ValidationException` |
+| `submit($form, $request, ?$sender, bypassClosed:)` | a final submission (`SubmissionResult`) |
+| `draft($form, $request, ?$sender, ?$uuid, bypassClosed:)` | a resumable draft |
+| `finalize($uuid, bypassClosed:)` | validate and promote a draft |
+| `submissions($form)` | a `SubmissionQuery` reader (below) |
+| `submission($uuid \| FormSubmission)` | a `SubmissionHandle`: `get()`, `model()`, `uuid()`, `finalize()`, `review()` |
+| `review($uuid \| FormSubmission)` | a `PendingSubmissionReview` (see Submission review) |
+| `createSubmission($field, $value, …)` | one raw field row (imports, seeds) |
+| `fake()` | swap in `FormsFake` (see Testing your application) |
+
+#### Without the facade
+
+The facade is sugar over `RoundlyConsulting\Forms\FormsManager` — inject it for the same API,
+or call an action directly:
+
+```php
+use RoundlyConsulting\Forms\Actions\StoreSubmissionAction;
+use RoundlyConsulting\Forms\FormsManager;
+
+public function __construct(private FormsManager $forms) {}
+
+$result = $this->forms->submit($this->forms->find('contact'), $request, $user);
+$this->forms->submission($result->uuid)->get();
+
+// The raw action
+app(StoreSubmissionAction::class)->execute($form, $request, $user);
+```
+
+The host-facing actions are `FindFormAction`, `CreateFormAction`, `UpdateFormAction`,
+`SyncFormsAction`, `ValidateSubmissionAction`, `StoreSubmissionAction`, `DraftSubmissionAction`,
+`FinalizeSubmissionAction`, `FindSubmissionAction`, `ReviewSubmissionAction` and
+`CreateSubmissionAction`.
 
 #### Closed forms are rejected
 
@@ -325,7 +362,7 @@ $draft = Forms::draft($form, request(), $user);   // returns SubmissionResult wi
 // ...later, resume by reusing the uuid (overwrites the prior draft values):
 Forms::draft($form, request(), $user, uuid: $draft->uuid);
 // finalize — validates, then marks the rows final and dispatches FormSubmitted:
-Forms::finalize($draft->uuid);
+Forms::finalize($draft->uuid);            // or Forms::submission($draft->uuid)->finalize()
 ```
 
 Drafts are excluded from final-submission reads by default. Only a draft of the same form can
@@ -347,7 +384,22 @@ $answers->first()->values;          // ['name' => 'Jane', 'email' => 'jane@examp
 $answers->first()->value('name');   // 'Jane'
 ```
 
-Drafts are excluded unless you call `->withDrafts()`.
+Drafts are excluded unless you call `->withDrafts()`. Narrow further with `->whereUuid($uuid)`
+or by review outcome — `->pendingApproval()`, `->approved()`, `->rejected()`. The reader is always
+scoped to its form: another form's uuid matches nothing.
+
+One submission — or draft — by the uuid `submit()` / `draft()` returned:
+
+```php
+$submission = Forms::submission($result->uuid);
+
+$submission->get();          // AssembledSubmission (a draft's values included)
+$submission->model();        // the FormSubmission aggregate: status, sender, form
+$submission->finalize();     // promote a draft
+$submission->review();       // open a review (see below)
+```
+
+An unknown or malformed uuid throws `SubmissionNotFoundException`.
 
 ### Editing a form's structure
 
@@ -422,12 +474,9 @@ through the approvals engine for multi-approver sign-off. The decision is mirror
 submission status automatically:
 
 ```php
-use RoundlyConsulting\Approvals\Enums\ApprovalRule;
-use RoundlyConsulting\Forms\Models\FormSubmission;
+$submission = Forms::submission($result->uuid)->model();
 
-$submission = FormSubmission::query()->where('uuid', $uuid)->first();
-
-Forms::review($submission)
+Forms::review($submission)         // or Forms::review($uuid), Forms::submission($uuid)->review()
     ->requiring([$lead, $qa, $pm])
     ->quorum(2)                    // or ->unanimous(), ->any(), ->weighted($threshold)
     ->open();                      // submission status -> Pending
@@ -456,8 +505,8 @@ class User extends Authenticatable
     use HasForms;
 }
 
-$user->submitTo($form, request());     // delegates to Forms::submit with $user as sender
-$user->draftTo($form, request());      // delegates to Forms::draft
+$user->submitTo($form, request());     // Forms::submit with $user as sender
+$user->draftTo($form, request());      // Forms::draft — both go through the manager, so Forms::fake() records them
 $user->formSubmissions;                // morphMany of the user's submissions
 ```
 
@@ -630,12 +679,16 @@ composer test
 
 ### Testing your application
 
-`Forms::fake()` swaps the manager for a recording fake so you can assert on form
-activity without standing up listeners. It still performs against the database, so
-the rows you'd expect are really created — the fake just records intent on top.
+`Forms::fake()` swaps the manager for `FormsFake` — a recording `FormsManager` subtype, so
+injected managers get it too. It still performs against the database, so the rows you'd expect
+are really created (and a review still opens its approvals request) — the fake records every call
+on top: through the facade, an injected manager, the builders, `Forms::submission()`, the `HasForms`
+trait and `forms:sync`.
 
 ```php
+use RoundlyConsulting\Approvals\Models\ApprovalRequest;
 use RoundlyConsulting\Forms\Facades\Forms;
+use RoundlyConsulting\Forms\Models\FormSubmission;
 
 $fake = Forms::fake();
 
@@ -645,16 +698,20 @@ $fake->assertSubmitted($form);
 $fake->assertSubmitted($form, fn ($result, $form) => $result->fieldCount === 3);
 $fake->assertSubmittedCount(1);
 $fake->assertNotSubmitted($otherForm);
-$fake->assertNothingSubmitted();
-
-$fake->assertDrafted($form);
-$fake->assertFinalized($uuid);
-$fake->assertFormDefined('contact');
-$fake->assertFormCreated();
-$fake->assertFormUpdated('contact');
-$fake->assertSubmissionCreated();
-$fake->assertSynced();
+$fake->assertReviewOpened(fn (ApprovalRequest $request, FormSubmission $submission) => $request->quorum === 2);
 ```
+
+| Records | Assert | Assert none |
+|---|---|---|
+| `submit()`, `$user->submitTo()` | `assertSubmitted(?Form, ?callable(SubmissionResult, Form))`, `assertSubmittedCount(int)`, `assertNotSubmitted(?Form)` | `assertNothingSubmitted()` |
+| `draft()`, `$user->draftTo()` | `assertDrafted(?Form, ?callable)` | `assertNothingDrafted()` |
+| `finalize()`, `submission()->finalize()` | `assertFinalized(?string $uuid)` | `assertNothingFinalized()` |
+| `define()` | `assertFormDefined(string $key)` | `assertNoFormDefined()` |
+| `create()`, `define()->create()` | `assertFormCreated(?callable(Form))` | `assertNoFormCreated()` |
+| `update()->save()` | `assertFormUpdated(string $key)` | `assertNoFormUpdated()` |
+| `createSubmission()` | `assertSubmissionCreated(?callable(Submission))` | `assertNoSubmissionCreated()` |
+| `sync()`, `forms:sync` | `assertSynced()` | `assertNothingSynced()` |
+| `review()->…->open()` | `assertReviewOpened(?callable(ApprovalRequest, FormSubmission))` | `assertNothingReviewed()` |
 
 The `InteractsWithForms` trait adds ergonomic helpers to your test case
 (`fakeForms()`, `submitForm($form, $values, $sender)`, `draftForm(...)`):

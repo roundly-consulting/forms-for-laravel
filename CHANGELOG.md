@@ -15,19 +15,24 @@ Initial public release.
 - A fluent builder, `Forms::define('contact', 'Contact us')->group(...)->create()`, with typed
   field shortcuts (`email()`, `number()`, `date()`, `select()`, `file()`, …) and custom messages.
 - Conditional fields with `requiredWhen()` and `visibleWhen()`, enforced during validation.
-- A `Forms` facade to `find()`, `validate()` and `submit()`, rejecting closed (non-public or
-  expired) forms unless you pass `bypassClosed: true`.
+- A `Forms` facade over an injectable `FormsManager` to `find()`, `validate()` and `submit()`,
+  rejecting closed (non-public or expired) forms unless you pass `bypassClosed: true`.
 - Draft submissions that save now and `finalize()` later, and a submissions reader that returns
-  one keyed answer set per submission.
+  one keyed answer set per submission, filterable by sender, uuid (`whereUuid()`) and review
+  outcome (`pendingApproval()`, `approved()`, `rejected()`).
+- `Forms::submission($uuid)` to read one submission or draft (`get()`, `model()`), finalize it or
+  open its review; an unknown uuid throws `SubmissionNotFoundException`.
 - `Forms::update()` to change a form's structure in place, and declarative forms from config
   synced with `forms:sync`.
 - Typed field values — numbers, booleans, dates and arrays read back as real PHP types — through
   attributes-for-laravel.
 - File and image fields stored as media on the submission, served only through signed URLs when
   private, through media-library-for-laravel.
-- Optional multi-approver review of whole submissions (`Forms::review()`) through
-  approvals-for-laravel, mirrored back onto the submission status.
+- Optional multi-approver review of whole submissions (`Forms::review($submission)` or by uuid)
+  through approvals-for-laravel, mirrored back onto the submission status.
 - A `HasForms` trait (`submitTo()`, `draftTo()`), custom field resolvers, autofill classes, query
   scopes and API resources (`FormResource`).
-- Events for submissions and for every form, group and field change, and `Forms::fake()` with
-  assertions such as `assertSubmitted()` for your tests.
+- Events for submissions and for every form, group and field change, and `Forms::fake()` — a
+  recording `FormsManager` subtype that still performs — with assertions such as
+  `assertSubmitted()`, `assertReviewOpened()` and an `assertNothing*` / `assertNo*` counterpart for
+  each, covering calls through builders, `Forms::submission()`, `HasForms` and `forms:sync`.
