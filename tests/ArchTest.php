@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use RoundlyConsulting\Forms\Exceptions\FormsException;
+use RoundlyConsulting\Forms\FormsManager;
 use RoundlyConsulting\Forms\Models\Field;
 use RoundlyConsulting\Forms\Models\Form;
 use RoundlyConsulting\Forms\Models\FormSubmission;
@@ -13,7 +14,6 @@ use RoundlyConsulting\Forms\Resolvers\MediaFileResolver;
 use RoundlyConsulting\Forms\Resources\FieldResource;
 use RoundlyConsulting\Forms\Resources\FormResource;
 use RoundlyConsulting\Forms\Resources\GroupResource;
-use RoundlyConsulting\Forms\Services\FormsService;
 use RoundlyConsulting\Testing\Arch\ArchPresets;
 
 /**
@@ -31,7 +31,7 @@ ArchPresets::strictTypes('RoundlyConsulting\Forms');
  *  - the two resolvers — `forms.fields.*` names a resolver class per field type, and a host
  *    writes its own by extending these.
  *  - FormsException — the base every forms error extends, so a host can catch uniformly.
- *  - FormsService — the package's own FormsFake extends it, which is how `Forms::fake()`
+ *  - FormsManager — the package's own FormsFake extends it, which is how `Forms::fake()`
  *    works. `final` here would break a feature this package ships.
  */
 ArchPresets::finalByDefault('RoundlyConsulting\Forms', [
@@ -46,7 +46,7 @@ ArchPresets::finalByDefault('RoundlyConsulting\Forms', [
     DefaultResolver::class,
     MediaFileResolver::class,
     FormsException::class,
-    FormsService::class,
+    FormsManager::class,
 ]);
 
 /**
@@ -104,3 +104,9 @@ ArchPresets::morphColumnsUseTheSeam(__DIR__.'/../database/migrations');
 ArchPresets::runtimeRequireIsWhitelisted(__DIR__.'/../composer.json');
 
 ArchPresets::noDebuggingLeftovers();
+
+/**
+ * One path: the HasForms trait reaches the manager, never an action, so `Forms::fake()`
+ * records a submission or draft made through it.
+ */
+ArchPresets::modelsGoThroughTheFacade('RoundlyConsulting\\Forms');
