@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 use RoundlyConsulting\Attributes\Enums\AttributeType;
 use RoundlyConsulting\Forms\Autofill\Autofill;
+use RoundlyConsulting\Forms\Concerns\ReleasesKeyWhenTrashed;
 use RoundlyConsulting\Forms\Database\Factories\FieldFactory;
 use RoundlyConsulting\Forms\Events\FieldCreated;
 use RoundlyConsulting\Forms\Events\FieldDeleted;
@@ -45,6 +46,7 @@ use UnexpectedValueException;
  * @property CarbonInterface $created_at
  * @property CarbonInterface $updated_at
  * @property CarbonInterface|null $deleted_at
+ * @property int $deleted_token 0 while live, the row's id once soft-deleted (frees its key)
  * @property-read Form $form
  * @property-read Group $group
  */
@@ -52,6 +54,9 @@ class Field extends Model
 {
     /** @use HasFactory<FieldFactory> */
     use HasFactory;
+
+    // After SoftDeletes: its scope must replace the soft-deleting scope's query callbacks.
+    use ReleasesKeyWhenTrashed;
 
     use SoftDeletes;
 

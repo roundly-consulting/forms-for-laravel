@@ -28,8 +28,10 @@ return new class extends Migration
             $table->integer('order')->default(0);
             $table->timestamps();
             $table->softDeletes();
+            // 0 while live, the row's own id once soft-deleted (see the forms table).
+            $table->unsignedBigInteger('deleted_token')->default(0);
 
-            $table->unique(['group_id', 'key']);
+            $table->unique(['group_id', 'key', 'deleted_token']);
         });
     }
 };

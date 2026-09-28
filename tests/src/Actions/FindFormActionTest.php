@@ -37,7 +37,7 @@ it('throws a form-not-found exception for an unknown key', function () {
 it('throws a multiple-forms-found exception for duplicate keys', function () {
     // The unique index normally prevents this; drop it to simulate corrupt data.
     Schema::table('forms', function ($table): void {
-        $table->dropUnique(['key']);
+        $table->dropUnique(['key', 'deleted_token']);
     });
 
     Form::factory()->create(['key' => 'dupe']);

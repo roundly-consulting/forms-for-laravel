@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use RoundlyConsulting\Forms\Concerns\ReleasesKeyWhenTrashed;
 use RoundlyConsulting\Forms\Database\Factories\GroupFactory;
 use RoundlyConsulting\Forms\Events\GroupCreated;
 use RoundlyConsulting\Forms\Events\GroupDeleted;
@@ -27,11 +28,15 @@ use RoundlyConsulting\Forms\Support\FormModel;
  * @property CarbonInterface $created_at
  * @property CarbonInterface $updated_at
  * @property CarbonInterface|null $deleted_at
+ * @property int $deleted_token 0 while live, the row's id once soft-deleted (frees its key)
  */
 class Group extends Model
 {
     /** @use HasFactory<GroupFactory> */
     use HasFactory;
+
+    // After SoftDeletes: its scope must replace the soft-deleting scope's query callbacks.
+    use ReleasesKeyWhenTrashed;
 
     use SoftDeletes;
 

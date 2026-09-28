@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use RoundlyConsulting\Forms\Facades\Forms;
 use RoundlyConsulting\Forms\GroupBuilder;
@@ -91,4 +92,63 @@ it('finalizes a draft whose field was soft-deleted after it was saved', function
 
     expect($result->fieldCount)->toBe(2)
         ->and(Forms::submissions($form)->first()?->values)->toBe(['name' => 'Ann', 'age' => 42]);
+});
+
+/*
+ * Review fixes (2026-09-28) — the key of a soft-deleted form, group or field is free again.
+ * The unique indexes counted trashed rows, while every lookup skips them, so re-creating the
+ * key threw a UniqueConstraintViolationException.
+ */
+
+it('reuses the key of a soft-deleted form for a new form', function () {
+    answeredForm()->delete();
+
+    $again = answeredForm();
+
+    expect(Form::query()->where('key', 'survey')->sole()->is($again))->toBeTrue()
+        ->and(Form::withTrashed()->where('key', 'survey')->count())->toBe(2);
+});
+
+it('syncs a definition whose key a soft-deleted form holds', function () {
+    answeredForm()->delete();
+
+    expect(Forms::sync([['key' => 'survey', 'name' => 'Survey again']]))->toBe(['survey'])
+        ->and(Form::query()->where('key', 'survey')->sole()->name)->toBe('Survey again');
+});
+
+it('re-adds a soft-deleted field and group through update()', function () {
+    answeredForm();
+    Field::query()->where('key', 'age')->sole()->delete();
+
+    Forms::update('survey')
+        ->group('main', 'Main', fn (GroupBuilder $g) => $g->field('age', 'Age again'))
+        ->save();
+
+    Group::query()->where('key', 'main')->sole()->delete();
+
+    Forms::update('survey')
+        ->group('main', 'Main again', fn (GroupBuilder $g) => $g->field('name', 'Name'))
+        ->save();
+
+    expect(Field::query()->where('key', 'age')->sole()->name)->toBe('Age again')
+        ->and(Field::withTrashed()->where('key', 'age')->count())->toBe(2)
+        ->and(Group::query()->where('key', 'main')->sole()->name)->toBe('Main again');
+});
+
+it('releases the key on a query-level delete and takes it back on restore', function () {
+    answeredForm();
+
+    Form::query()->where('key', 'survey')->delete();
+    answeredForm();
+
+    // Two rows now carry `survey`; only one may be live at a time.
+    $trashed = Form::onlyTrashed()->where('key', 'survey')->sole();
+
+    expect(fn () => $trashed->restore())->toThrow(UniqueConstraintViolationException::class);
+
+    Form::query()->where('key', 'survey')->sole()->delete();
+
+    Form::onlyTrashed()->whereKey($trashed->getKey())->restore();
+
+    expect(Form::query()->where('key', 'survey')->sole()->is($trashed))->toBeTrue();
 });
