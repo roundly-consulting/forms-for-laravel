@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use RoundlyConsulting\Forms\Models\Field;
 use RoundlyConsulting\Forms\Models\Submission;
+use RoundlyConsulting\MediaLibrary\Models\Media;
 
 /**
  * Stores an uploaded file as media on the per-field submission row, built on
@@ -48,6 +49,38 @@ class MediaFileResolver implements AttachesToSubmission, Resolver
         $media = $submission->addMedia($file)->toBucket($submission->attachmentBucket());
 
         $submission->update(['value' => ['value' => $media->uuid]]);
+    }
+
+    /**
+     * A temporary copy of the row's stored attachment, as the upload it once was — its
+     * original name and mime type — so validation checks the real bytes.
+     */
+    public function restoreUpload(Submission $submission): ?UploadedFile
+    {
+        $media = $submission->getFirstMedia($submission->attachmentBucket());
+
+        if (! $media instanceof Media) {
+            return null;
+        }
+
+        $source = $media->getStream();
+        $path = tempnam(sys_get_temp_dir(), 'forms-upload-');
+
+        if (! is_resource($source) || $path === false) {
+            return null;
+        }
+
+        $target = fopen($path, 'wb');
+
+        if ($target === false) {
+            return null;
+        }
+
+        stream_copy_to_stream($source, $target);
+        fclose($target);
+        fclose($source);
+
+        return new UploadedFile($path, $media->file_name, $media->mime_type, UPLOAD_ERR_OK, test: true);
     }
 
     public function fromStorage(?Model $sender = null): mixed

@@ -46,7 +46,7 @@ final readonly class DraftSubmissionAction
 
         $fieldCount = $form->getConnection()->transaction(function () use ($form, $request, $sender, $uuid, $resuming): int {
             if ($resuming) {
-                $this->guardResumable($form, $uuid);
+                $this->guardResumable($form, $uuid, $sender);
                 $this->clearExistingDraft($uuid);
             }
 
@@ -83,13 +83,16 @@ final readonly class DraftSubmissionAction
     }
 
     /**
-     * Only a draft of this form can be resumed. Resuming clears the uuid's *draft* rows and
-     * rewrites its aggregate, so a finalized uuid (or another form's draft) would be reopened
-     * next to its final rows — and finalizing it again doubled every field's row. A malformed
-     * uuid identifies nothing (and a strict engine rejects it in the query), so it is not
-     * found either — the same answers `finalize()` gives.
+     * Only a draft of this form, saved by this sender, can be resumed. Resuming clears the
+     * uuid's *draft* rows and rewrites its aggregate, so a finalized uuid (or another form's
+     * draft) would be reopened next to its final rows — and finalizing it again doubled every
+     * field's row; and another sender's draft would be taken over, its values replaced and
+     * its sender rewritten. An anonymous draft stays anonymous: a signed-in sender cannot
+     * claim it. A malformed uuid identifies nothing (and a strict engine rejects it in the
+     * query), so it is not found either — the same answers `finalize()` gives, which never
+     * confirm that someone else's draft exists.
      */
-    private function guardResumable(Form $form, string $uuid): void
+    private function guardResumable(Form $form, string $uuid, ?Model $sender): void
     {
         if (! Str::isUuid($uuid)) {
             throw DraftNotFoundException::forUuid($uuid);
@@ -98,28 +101,47 @@ final readonly class DraftSubmissionAction
         $aggregateModel = FormSubmissionModel::class();
         $aggregate = $aggregateModel::query()->where('uuid', $uuid)->first();
 
-        $foreignAggregate = $aggregate !== null
-            && (! $aggregate->isDraft() || (string) $aggregate->form_id !== (string) $form->getKey());
+        $foreignAggregate = $aggregate !== null && (
+            ! $aggregate->isDraft()
+            || (string) $aggregate->form_id !== (string) $form->getKey()
+            || ! $this->sentBy($aggregate->sender_type, $aggregate->sender_id, $sender)
+        );
 
         $submissionModel = SubmissionModel::class();
 
-        $foreignRows = $submissionModel::query()
+        $rows = $submissionModel::query()
             ->where('uuid', $uuid)
-            ->where(fn ($query) => $query
-                ->where('form_id', '!=', $form->getKey())
-                ->orWhereNull('status')
-                ->orWhere('status', '!=', SubmissionStatus::Draft->value))
-            ->exists();
+            ->get(['form_id', 'status', 'sender_type', 'sender_id']);
+
+        $foreignRows = $rows->contains(fn (Submission $row): bool => (string) $row->form_id !== (string) $form->getKey()
+            || $row->status !== SubmissionStatus::Draft
+            || ! $this->sentBy($row->sender_type, $row->sender_id, $sender));
 
         if ($foreignAggregate || $foreignRows) {
             throw DraftNotFoundException::forUuid($uuid);
         }
     }
 
+    private function sentBy(?string $senderType, int|string|null $senderId, ?Model $sender): bool
+    {
+        $key = SubmissionData::senderKey($sender);
+
+        return $senderType === $sender?->getMorphClass()
+            && ($senderId === null ? $key === null : $key !== null && (string) $senderId === (string) $key);
+    }
+
+    /**
+     * Force-delete the draft's rows one model at a time, so each purges the uploads it owns
+     * (a query-level delete skips the model events that do it, orphaning the files).
+     */
     private function clearExistingDraft(string $uuid): void
     {
         $submissionModel = SubmissionModel::class();
 
-        $submissionModel::query()->draft()->where('uuid', $uuid)->forceDelete();
+        $submissionModel::query()
+            ->draft()
+            ->where('uuid', $uuid)
+            ->get()
+            ->each(fn (Submission $submission): ?bool => $submission->forceDelete());
     }
 }

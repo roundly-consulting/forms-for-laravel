@@ -6,6 +6,7 @@ namespace RoundlyConsulting\Forms\Resolvers;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use RoundlyConsulting\Forms\Models\Submission;
 
 /**
@@ -17,4 +18,13 @@ use RoundlyConsulting\Forms\Models\Submission;
 interface AttachesToSubmission
 {
     public function attach(Submission $submission, Request $request, ?Model $sender = null): void;
+
+    /**
+     * Rebuild the upload a stored row holds, so finalizing a draft validates the real file
+     * against the field's rules (`file`, `mimes`, `max`, …) — the request that carried it is
+     * long gone. Null when the row holds none.
+     *
+     * The file is a temporary copy; the caller deletes it once validation has run.
+     */
+    public function restoreUpload(Submission $submission): ?UploadedFile;
 }

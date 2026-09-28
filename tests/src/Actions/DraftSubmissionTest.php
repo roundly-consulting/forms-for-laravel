@@ -3,7 +3,10 @@
 declare(strict_types=1);
 
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use RoundlyConsulting\Forms\Enums\SubmissionStatus;
 use RoundlyConsulting\Forms\Events\FormSubmitted;
@@ -12,6 +15,8 @@ use RoundlyConsulting\Forms\Facades\Forms;
 use RoundlyConsulting\Forms\GroupBuilder;
 use RoundlyConsulting\Forms\Models\FormSubmission;
 use RoundlyConsulting\Forms\Models\Submission;
+use RoundlyConsulting\Forms\Tests\testable\Submitter;
+use RoundlyConsulting\MediaLibrary\Models\Media;
 
 function draftForm(): void
 {
@@ -155,3 +160,139 @@ it('refuses to resume a malformed draft uuid', function () {
 
     Forms::draft(Forms::find('apply'), Request::create('t', parameters: ['apply' => ['g' => ['name' => 'Jane']]]), uuid: 'not-a-uuid');
 })->throws(DraftNotFoundException::class);
+
+/*
+ * Review fixes (2026-09-28).
+ */
+
+it('refuses to resume a draft for anyone but the sender who saved it', function () {
+    draftForm();
+    $form = Forms::find('apply');
+    $alice = Submitter::query()->create();
+    $bob = Submitter::query()->create();
+
+    $draft = Forms::draft($form, Request::create('t', parameters: ['apply' => ['g' => ['name' => 'Alice']]]), $alice);
+
+    expect(fn () => Forms::draft($form, Request::create('t', parameters: ['apply' => ['g' => ['name' => 'Bob']]]), $bob, uuid: $draft->uuid))
+        ->toThrow(DraftNotFoundException::class)
+        ->and(fn () => Forms::draft($form, Request::create('t', parameters: ['apply' => ['g' => ['name' => 'Anon']]]), uuid: $draft->uuid))
+        ->toThrow(DraftNotFoundException::class);
+
+    $aggregate = FormSubmission::query()->sole();
+
+    expect($aggregate->sender_id)->toBe($alice->getKey())
+        ->and(Forms::submission($draft->uuid)->get()->value('name'))->toBe('Alice');
+
+    // The owner still resumes it.
+    Forms::draft($form, Request::create('t', parameters: ['apply' => ['g' => ['name' => 'Alice B.']]]), $alice, uuid: $draft->uuid);
+
+    expect(Forms::submission($draft->uuid)->get()->value('name'))->toBe('Alice B.');
+});
+
+it('does not let a signed-in sender take over an anonymous draft', function () {
+    draftForm();
+    $form = Forms::find('apply');
+
+    $draft = Forms::draft($form, Request::create('t', parameters: ['apply' => ['g' => ['name' => 'Anon']]]));
+
+    Forms::draft($form, Request::create('t', parameters: ['apply' => ['g' => ['name' => 'Bob']]]), Submitter::query()->create(), uuid: $draft->uuid);
+})->throws(DraftNotFoundException::class);
+
+it('lets only one of two racing finalizes win', function () {
+    Event::fake([FormSubmitted::class]);
+
+    // `interleave` runs a second finalize of the same draft to completion while the first
+    // is between reading the draft and promoting it — the window two processes race in.
+    $raced = false;
+    Validator::extend('interleave', function () use (&$raced): bool {
+        if (! $raced) {
+            $raced = true;
+            Forms::finalize((string) FormSubmission::query()->value('uuid'));
+        }
+
+        return true;
+    });
+
+    Forms::define('race', 'Race')
+        ->public()
+        ->group('g', 'G', fn (GroupBuilder $g) => $g->field('name', 'Name')->rules(['interleave']))
+        ->create();
+
+    $draft = Forms::draft(Forms::find('race'), Request::create('t', parameters: ['race' => ['g' => ['name' => 'Jane']]]));
+
+    expect(fn () => Forms::finalize($draft->uuid))->toThrow(DraftNotFoundException::class)
+        ->and(Submission::query()->where('uuid', $draft->uuid)->final()->count())->toBe(1);
+
+    Event::assertDispatchedTimes(FormSubmitted::class, 1);
+});
+
+it('drops the stored input of a field hidden when the draft is finalized', function () {
+    Forms::define('kyc', 'KYC')
+        ->public()
+        ->group('main', 'Main', function (GroupBuilder $g): void {
+            $g->field('adult', 'Adult');
+            $g->field('born', 'Born')->date()->visibleWhen('adult', 'yes');
+        })
+        ->create();
+
+    $draft = Forms::draft(Forms::find('kyc'), Request::create('t', parameters: ['kyc' => ['main' => ['adult' => 'no', 'born' => 'garbage']]]));
+
+    Forms::finalize($draft->uuid);
+
+    expect(Forms::submissions(Forms::find('kyc'))->first()?->values)->toBe(['adult' => 'no', 'born' => null]);
+});
+
+describe('drafts with a file field', function () {
+    beforeEach(function () {
+        Storage::fake('public');
+        Storage::fake('local');
+
+        Forms::define('docs', 'Docs')
+            ->public()
+            ->group('g', 'G', function (GroupBuilder $g): void {
+                $g->field('passport', 'Passport')->file()->rules(['required', 'file', 'mimes:pdf', 'max:100']);
+            })
+            ->create();
+    });
+
+    $pdf = fn (string $name = 'a.pdf'): UploadedFile => UploadedFile::fake()->createWithContent($name, "%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n");
+
+    $upload = fn (UploadedFile $file): Request => Request::create('t', 'POST', files: ['docs' => ['g' => ['passport' => $file]]]);
+
+    it('finalizes, validating the stored upload against the field rules', function () use ($pdf, $upload) {
+        $draft = Forms::draft(Forms::find('docs'), $upload($pdf()));
+
+        $result = Forms::finalize($draft->uuid);
+
+        $row = Submission::query()->where('uuid', $draft->uuid)->sole();
+
+        expect($result->fieldCount)->toBe(1)
+            ->and($row->status)->toBe(SubmissionStatus::Final)
+            ->and($row->attachments())->toHaveCount(1);
+    });
+
+    it('refuses to finalize when the stored upload breaks the field rules', function () use ($upload) {
+        $draft = Forms::draft(Forms::find('docs'), $upload(UploadedFile::fake()->image('p.png', 10, 10)));
+
+        expect(fn () => Forms::finalize($draft->uuid))->toThrow(ValidationException::class, 'must be a file of type: pdf')
+            ->and(Submission::query()->where('uuid', $draft->uuid)->sole()->isDraft())->toBeTrue();
+    });
+
+    it('refuses to finalize a required upload that was never made', function () {
+        $draft = Forms::draft(Forms::find('docs'), Request::create('t', 'POST'));
+
+        expect(fn () => Forms::finalize($draft->uuid))->toThrow(ValidationException::class, 'field is required');
+    });
+
+    it('purges the previous upload when the draft is resumed', function () use ($pdf, $upload) {
+        $draft = Forms::draft(Forms::find('docs'), $upload($pdf('first.pdf')));
+        $first = Submission::query()->sole()->attachments()->sole();
+
+        Forms::draft(Forms::find('docs'), $upload($pdf('second.pdf')), uuid: $draft->uuid);
+
+        expect(Media::query()->count())->toBe(1)
+            ->and(Media::query()->where('uuid', $first->uuid)->exists())->toBeFalse()
+            ->and(Storage::disk($first->disk)->exists($first->getPath()))->toBeFalse()
+            ->and(Submission::query()->sole()->attachments()->sole()->name)->toBe('second');
+    });
+});
