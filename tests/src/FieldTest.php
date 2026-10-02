@@ -7,8 +7,10 @@ use RoundlyConsulting\Forms\Models\Field;
 use RoundlyConsulting\Forms\Models\Form;
 use RoundlyConsulting\Forms\Models\Group;
 use RoundlyConsulting\Forms\Resolvers\DefaultResolver;
+use RoundlyConsulting\Forms\Resources\FieldResource;
 use RoundlyConsulting\Forms\Tests\testable\CustomAutofill;
 use RoundlyConsulting\Forms\Tests\testable\CustomResolver;
+use RoundlyConsulting\Forms\Tests\testable\NotAnAutofill;
 
 it('casts attributes', function () {
     $field = Field::factory()->make([
@@ -185,3 +187,19 @@ it('reports only an unconditional required rule as required', function (array $r
     'required_if_accepted' => [['required_if_accepted:terms'], false],
     'no rules' => [[], false],
 ]);
+
+/*
+ * Review fixes (2026-09-28) — the `autofill` column is data: a class it names is built only
+ * when it is an Autofill, so a stored class name cannot make every render instantiate an
+ * arbitrary class.
+ */
+
+it('never builds a class the autofill column names unless it is an Autofill', function () {
+    NotAnAutofill::$built = 0;
+
+    $field = Field::factory()->make(['autofill' => NotAnAutofill::class]);
+
+    expect($field->getAutofillValue())->toBe(NotAnAutofill::class)
+        ->and(FieldResource::make($field)->resolve()['autofill']['value'] ?? null)->toBe(NotAnAutofill::class)
+        ->and(NotAnAutofill::$built)->toBe(0);
+});

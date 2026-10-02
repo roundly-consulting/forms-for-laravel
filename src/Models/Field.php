@@ -340,17 +340,23 @@ class Field extends Model
         return count($this->validations ?: []) > 0;
     }
 
+    /**
+     * The field's default value: an {@see Autofill} class named in `autofill` is resolved
+     * and asked for it; anything else is returned as stored. The column is data, so a class
+     * it names is never built unless it is an Autofill.
+     */
     public function getAutofillValue(): mixed
     {
-        if (filled($this->autofill) && class_exists($this->autofill)) {
-            $autofill = resolve($this->autofill);
+        $autofill = $this->autofill;
 
-            if ($autofill instanceof Autofill) {
-                return $autofill->fill($this);
-            }
+        if (filled($autofill) && is_subclass_of($autofill, Autofill::class)) {
+            /** @var Autofill $resolved */
+            $resolved = resolve($autofill);
+
+            return $resolved->fill($this);
         }
 
-        return $this->autofill;
+        return $autofill;
     }
 
     protected static function newFactory(): FieldFactory
