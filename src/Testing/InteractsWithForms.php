@@ -6,6 +6,7 @@ namespace RoundlyConsulting\Forms\Testing;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use RoundlyConsulting\Forms\DataTransferObjects\SubmissionResult;
 use RoundlyConsulting\Forms\Facades\Forms;
 use RoundlyConsulting\Forms\Models\Form;
@@ -31,7 +32,8 @@ trait InteractsWithForms
 
     /**
      * Submit a form with the given values, building the nested request payload
-     * the resolvers expect (`form_key.group_key.field_key`).
+     * the resolvers expect (`form_key.group_key.field_key`). Values are nested per group
+     * or flat by `group_key.field_key` (see {@see self::formRequest()}).
      *
      * @param  array<string, mixed>  $values
      */
@@ -51,10 +53,13 @@ trait InteractsWithForms
     }
 
     /**
-     * @param  array<string, mixed>  $values  keyed by `group_key.field_key` or nested per group.
+     * The request a form posts: `$values` nested per group (`['details' => ['name' => 'Ann']]`)
+     * or flat by `group_key.field_key` (`['details.name' => 'Ann']`) — one style per group.
+     *
+     * @param  array<string, mixed>  $values
      */
     private function formRequest(Form $form, array $values): Request
     {
-        return Request::create('testing', 'POST', [$form->key => $values]);
+        return Request::create('testing', 'POST', [$form->key => Arr::undot($values)]);
     }
 }
