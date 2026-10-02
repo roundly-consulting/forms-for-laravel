@@ -11,15 +11,13 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('fields', function (Blueprint $table): void {
-            $table->jsonb('conditions')->nullable()->after('validations');
-            $table->jsonb('messages')->nullable()->after('conditions');
-        });
-    }
+            if (! Schema::hasColumn('fields', 'conditions')) {
+                $table->jsonb('conditions')->nullable()->after('validations');
+            }
 
-    public function down(): void
-    {
-        Schema::table('fields', function (Blueprint $table): void {
-            $table->dropColumn(['conditions', 'messages']);
+            if (! Schema::hasColumn('fields', 'messages')) {
+                $table->jsonb('messages')->nullable()->after('conditions');
+            }
         });
     }
 };

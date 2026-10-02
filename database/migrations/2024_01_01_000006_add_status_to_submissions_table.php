@@ -10,16 +10,16 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('submissions', function (Blueprint $table): void {
-            $table->string('status')->nullable()->index()->after('value');
-        });
-    }
+        if (! Schema::hasColumn('submissions', 'status')) {
+            Schema::table('submissions', function (Blueprint $table): void {
+                $table->string('status')->nullable()->after('value');
+            });
+        }
 
-    public function down(): void
-    {
-        Schema::table('submissions', function (Blueprint $table): void {
-            $table->dropIndex(['status']);
-            $table->dropColumn('status');
-        });
+        if (! Schema::hasIndex('submissions', ['status'])) {
+            Schema::table('submissions', function (Blueprint $table): void {
+                $table->index('status');
+            });
+        }
     }
 };

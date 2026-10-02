@@ -65,6 +65,9 @@ so they run cleanly against an empty database and keep their foreign keys intact
 package builds on other roundly packages, so publish and migrate theirs too
 (`approvals-migrations`, `attributes-migrations`, `media-migrations`).
 
+The migrations are forward-only: they define no `down()`, so `migrate:rollback` leaves the forms
+tables in place.
+
 Optionally publish the config file:
 
 ```bash

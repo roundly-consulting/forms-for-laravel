@@ -10,19 +10,16 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasColumn('submissions', 'form_submission_id')) {
+            return;
+        }
+
         Schema::table('submissions', function (Blueprint $table): void {
             $table->foreignId('form_submission_id')
                 ->nullable()
                 ->after('uuid')
                 ->constrained('form_submissions')
                 ->nullOnDelete();
-        });
-    }
-
-    public function down(): void
-    {
-        Schema::table('submissions', function (Blueprint $table): void {
-            $table->dropConstrainedForeignId('form_submission_id');
         });
     }
 };
