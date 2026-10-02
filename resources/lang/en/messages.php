@@ -9,7 +9,7 @@ return [
     'submission_closed' => 'Form [:key] is not accepting submissions.',
     'draft_not_found' => 'No draft submission found for uuid [:uuid].',
     'submission_not_found' => 'No submission found for uuid [:uuid].',
-    'invalid_field_value' => 'The value for field [:field] is not a valid :type.',
+    'invalid_field_value' => 'The :attribute field must be a valid :type.',
     'reviews_disabled' => 'Submission reviews are disabled. Enable forms.approvals.enabled to route submissions through the approvals engine.',
     'submission_not_reviewable' => 'Submission [:uuid] cannot be reviewed while it is a draft.',
     'submission_review_without_reviewers' => 'Submission [:uuid] cannot be reviewed without naming its reviewers: pass them to requiring().',

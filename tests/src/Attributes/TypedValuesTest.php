@@ -5,10 +5,10 @@ declare(strict_types=1);
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use RoundlyConsulting\Attributes\Enums\AttributeType;
 use RoundlyConsulting\Forms\Actions\StoreSubmissionAction;
 use RoundlyConsulting\Forms\Actions\ValidateFieldTypesAction;
-use RoundlyConsulting\Forms\Exceptions\InvalidFieldValueException;
 use RoundlyConsulting\Forms\Facades\Forms;
 use RoundlyConsulting\Forms\GroupBuilder;
 use RoundlyConsulting\Forms\Models\Field;
@@ -102,7 +102,7 @@ it('rejects a value that does not satisfy the mapped type', function () {
     $form = $field->form->fresh()->load('fields');
 
     expect(fn () => app(ValidateFieldTypesAction::class)->execute($form, requestFor($field, 'not-a-number')))
-        ->toThrow(InvalidFieldValueException::class);
+        ->toThrow(ValidationException::class, 'field must be a valid integer.');
 });
 
 it('accepts a valid value and ignores null and hidden fields', function () {
@@ -158,3 +158,44 @@ it('degrades a typed read per value instead of failing the whole reader', functi
     'checkbox' => ['checkbox', 'maybe'],
     'multiselect' => ['multiselect', '{not json'],
 ]);
+
+/*
+ * Review fixes (2026-09-28) — a value that fails its field's type check is the sender's
+ * mistake, so it is a validation error (422) keyed by the field's path, not a 500. A
+ * `number()` field is whole numbers (it maps to `integer`), so a decimal is one of them.
+ */
+
+it('rejects a decimal in a number() field as a validation error', function () {
+    $form = Forms::define('order', 'Order')
+        ->public()
+        ->group('main', 'Main', fn (GroupBuilder $g) => $g->field('qty', 'Quantity')->number())
+        ->create();
+
+    $validate = fn (string $qty) => Forms::validate($form, Request::create('t', 'POST', ['order' => ['main' => ['qty' => $qty]]]));
+
+    expect($validate('3'))->toBe(['order' => ['main' => ['qty' => '3']]]);
+
+    try {
+        $validate('3.5');
+        $this->fail('A decimal passed a number() field.');
+    } catch (ValidationException $exception) {
+        expect($exception->errors())->toBe(['order.main.qty' => ['The Quantity field must be a valid integer.']]);
+    }
+});
+
+it('reports every field that fails its type check at once', function () {
+    $form = Forms::define('mixed', 'Mixed')
+        ->public()
+        ->group('main', 'Main', function (GroupBuilder $g): void {
+            $g->field('qty', 'Quantity')->type('number');
+            $g->field('terms', 'Terms')->type('checkbox');
+            $g->field('note', 'Note');
+        })
+        ->create();
+
+    expect(fn () => Forms::validate($form, Request::create('t', 'POST', ['mixed' => ['main' => [
+        'qty' => 'many', 'terms' => 'maybe', 'note' => 'free text',
+    ]]])))->toThrow(function (ValidationException $exception): void {
+        expect(array_keys($exception->errors()))->toBe(['mixed.main.qty', 'mixed.main.terms']);
+    });
+});
