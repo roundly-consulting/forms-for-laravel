@@ -168,3 +168,20 @@ it('returns autofill value from custom class', function () {
 
     expect($field->getAutofillValue())->toBe("{$field->name} Autofill");
 });
+
+/*
+ * Review fixes (2026-09-28) — `isRequired()` means "always required": a field required only
+ * under a rule's condition (`required_if`, `required_with`, …) is not.
+ */
+
+it('reports only an unconditional required rule as required', function (array $rules, bool $required) {
+    expect(Field::factory()->make(['validations' => $rules])->isRequired())->toBe($required);
+})->with([
+    'required' => [['required', 'string'], true],
+    'required_if' => [['required_if:country,US'], false],
+    'required_with' => [['nullable', 'required_with:phone'], false],
+    'required_unless' => [['required_unless:role,guest'], false],
+    'required_without' => [['required_without:email'], false],
+    'required_if_accepted' => [['required_if_accepted:terms'], false],
+    'no rules' => [[], false],
+]);

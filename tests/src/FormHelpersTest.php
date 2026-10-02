@@ -28,7 +28,7 @@ it('reports acceptance via isAcceptingSubmissions', function () {
 
 it('reports required state via Field::isRequired', function () {
     expect(Field::factory()->make(['validations' => ['required', 'email']])->isRequired())->toBeTrue()
-        ->and(Field::factory()->make(['validations' => ['required_if:other,1']])->isRequired())->toBeTrue()
+        ->and(Field::factory()->make(['validations' => ['required_if:other,1']])->isRequired())->toBeFalse() // required only under its condition
         ->and(Field::factory()->make(['validations' => ['email']])->isRequired())->toBeFalse()
         ->and(Field::factory()->make(['validations' => null])->isRequired())->toBeFalse();
 });

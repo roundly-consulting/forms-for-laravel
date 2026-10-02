@@ -88,15 +88,15 @@ class Field extends Model
         ];
     }
 
+    /**
+     * Whether the field carries a plain `required` rule. A rule that requires it only under
+     * a condition of its own (`required_if`, `required_with`, `required_unless`, …) does
+     * not count. A field shown by its conditions (`requiredWhen()` / `visibleWhen()`) is
+     * required only while visible: pair this with {@see self::isVisible()} for a payload.
+     */
     public function isRequired(): bool
     {
-        foreach ($this->validations ?: [] as $rule) {
-            if (is_string($rule) && ($rule === 'required' || str_starts_with($rule, 'required'))) {
-                return true;
-            }
-        }
-
-        return false;
+        return in_array('required', $this->validations ?: [], true);
     }
 
     /**
