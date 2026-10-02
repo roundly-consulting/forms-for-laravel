@@ -36,9 +36,7 @@ class Form extends Model
     /** @use HasFactory<FormFactory> */
     use HasFactory;
 
-    // After SoftDeletes: its scope must replace the soft-deleting scope's query callbacks.
     use ReleasesKeyWhenTrashed;
-
     use SoftDeletes;
 
     protected $guarded = [];

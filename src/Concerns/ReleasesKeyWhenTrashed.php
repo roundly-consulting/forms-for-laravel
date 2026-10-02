@@ -6,6 +6,7 @@ namespace RoundlyConsulting\Forms\Concerns;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
 use RoundlyConsulting\Forms\Support\ReleasesTrashedKeys;
 
 /**
@@ -19,7 +20,8 @@ use RoundlyConsulting\Forms\Support\ReleasesTrashedKeys;
  * while a live row holds it.
  *
  * Both paths are covered: a model's `delete()` / `restore()` and a query's
- * `->delete()` / `->restore()`. Use it after {@see SoftDeletes}.
+ * `->delete()` / `->restore()`, whichever order the model lists the traits in. Use it with
+ * {@see SoftDeletes}.
  *
  * @internal
  *
@@ -43,6 +45,11 @@ trait ReleasesKeyWhenTrashed
             $model->setAttribute('deleted_token', 0);
         });
 
+        // A builder extends its scopes in registration order and keeps the last `onDelete` /
+        // `restore` it is given, so ours must come after the soft-deleting scope whichever
+        // trait boots first. Claim that scope's slot here: when SoftDeletes boots later it
+        // re-registers under the same key, which keeps the slot's original position.
+        static::addGlobalScope(new SoftDeletingScope);
         static::addGlobalScope(new ReleasesTrashedKeys);
     }
 }

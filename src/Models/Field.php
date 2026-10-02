@@ -55,9 +55,7 @@ class Field extends Model
     /** @use HasFactory<FieldFactory> */
     use HasFactory;
 
-    // After SoftDeletes: its scope must replace the soft-deleting scope's query callbacks.
     use ReleasesKeyWhenTrashed;
-
     use SoftDeletes;
 
     protected $guarded = [];
