@@ -43,7 +43,7 @@ Forms builds on other roundly-consulting packages (installed automatically as de
   passthrough, private signed streaming) instead of a bare disk path.
 - **[approvals-for-laravel](https://github.com/roundly-consulting/approvals-for-laravel)** — a whole
   submission (the `FormSubmission` aggregate) can be routed through the approvals engine for
-  multi-approver sign-off, mirroring the decision back onto the submission status.
+  sign-off by the reviewers you name, mirroring the decision back onto the submission status.
 
 ## Installation
 
@@ -105,9 +105,10 @@ return [
     ],
 
     // Map a field `type` to the attributes AttributeType used to cast stored
-    // values and type-check submissions. Unlisted types read back as strings.
+    // values and type-check submissions. Unlisted types (e.g. `time`) read back
+    // exactly as stored.
     'field_types' => [
-        'number' => 'integer',
+        'number' => 'integer',   // whole numbers; `decimal` / `float` map to 'float'
         'checkbox' => 'boolean',
         'date' => 'datetime',
         'multiselect' => 'array',
@@ -146,7 +147,7 @@ return [
 | `key_type` | `string` | `bigint` (`FORMS_KEY_TYPE`) | Key type of the polymorphic `sender_id` columns — `bigint`, `uuid` or `ulid`. Set it to match your senders' primary keys before migrating; the sender key is stored and read back as-is (`AssembledSubmission::$senderId` is `int\|string\|null`). |
 | `fields.default` | `class-string` | `Resolvers\DefaultResolver` | Resolver used for any field type without a specific mapping. |
 | `fields.file` / `fields.image` | `class-string` | `Resolvers\MediaFileResolver` | Media-backed resolver; stores the upload as media on the submission row. |
-| `field_types` | `array<string,string>` | see config | Maps a field `type` to an `AttributeType` for typed reads + validation. |
+| `field_types` | `array<string,string>` | see config | Maps a field `type` to an `AttributeType` for typed reads + validation. Shipped: `number`/`range` → `integer`, `float`/`decimal` → `float`, `checkbox`/`boolean`/`toggle` → `boolean`, `date`/`datetime` → `datetime`, `multiselect`/`checkboxes`/`tags` → `array`. `time` is left unmapped on purpose (a time of day reads back as stored). |
 | `media.bucket` | `string` | `attachment` | Media bucket the submission row registers uploads into. |
 | `media.visibility` | `string` | `private` | `private` (only ever linked via signed URLs) or `public`. |
 | `media.disk` | `?string` | `null` (`FORMS_MEDIA_DISK`) | Disk every upload is stored on. `null` = by visibility: private → `media.private_disk`, public → media-library's default disk. |
@@ -224,7 +225,7 @@ $form = Forms::define('contact', 'Contact us')
 ```
 
 Field builder methods: `type()`, `help()`, `autofill()`, `options()`, `rules()`, `order()`.
-Override the auto-assigned order with `->order(n)` on a group or field.
+Override the auto-assigned order with `->order(n)` on a group or field — `->order(0)` included.
 
 #### Typed field shortcuts
 
@@ -234,25 +235,36 @@ Thin sugar over `type()`/`rules()`/`options()` for the common field kinds:
 $g->field('email', 'Email')->email()->required();
 $g->field('bio', 'Bio')->textarea();
 $g->field('terms', 'Terms')->checkbox();      // type=checkbox, rule=boolean
-$g->field('age', 'Age')->number();            // type=number, rule=numeric
+$g->field('age', 'Age')->number();            // type=number, rule=numeric; whole numbers (3.5 fails)
 $g->field('dob', 'DOB')->date();              // type=date, rule=date
 $g->field('role', 'Role')->select(['a' => 'A', 'b' => 'B']);
-$g->field('avatar', 'Avatar')->file();        // type=file (see FileResolver)
+$g->field('avatar', 'Avatar')->file();        // type=file (see MediaFileResolver under File uploads)
 ```
 
 #### Conditional fields
 
-Show or require a field only when another field in the same form matches a value. The
-condition is stored on the field and enforced during validation — a hidden field is skipped,
-and a conditionally-required field is enforced only when its condition is met:
+Show or require a field only when another field of the same form — in any group — matches a
+value. The condition is stored on the field and enforced during validation — a hidden field is
+skipped (and whatever the request sent for it is not stored), and a conditionally-required field
+is enforced only when its condition is met:
 
 ```php
-$g->field('country', 'Country');
-$g->field('state', 'State')->requiredWhen('country', 'US');
-$g->field('guardian', 'Guardian')->visibleWhen('age', [16, 17], 'in');
+Forms::define('signup', 'Sign up')
+    ->group('step-1', 'Step 1', function (GroupBuilder $g): void {
+        $g->field('country', 'Country');
+        $g->field('age', 'Age')->number();
+    })
+    ->group('step-2', 'Step 2', function (GroupBuilder $g): void {
+        $g->field('state', 'State')->requiredWhen('country', 'US');        // a field of step 1
+        $g->field('guardian', 'Guardian')->visibleWhen('age', [16, 17], 'in');
+        $g->field('zip', 'ZIP')->visibleWhen('step-1.country', 'US');      // named exactly
+    })
+    ->create();
 ```
 
-Supported operators: `=` (default), `!=`, `in`, `not_in`, `filled`, `empty`.
+A bare key is looked up in the dependent field's own group first, then in the form's other
+groups (by group order); write `group_key.field_key` to name one exactly when two groups share
+the key. Supported operators: `=` (default), `!=`, `in`, `not_in`, `filled`, `empty`.
 
 #### Custom validation messages
 
@@ -277,8 +289,8 @@ use RoundlyConsulting\Forms\Facades\Forms;
 // Throws RoundlyConsulting\Forms\Exceptions\FormNotFoundException for an unknown key.
 $form = Forms::find('contact');
 
-// Validate request input — throws Illuminate\Validation\ValidationException on failure.
-// Returns the validated data.
+// Validate request input — throws Illuminate\Validation\ValidationException on failure
+// (a broken field rule and a value that fails its field's type alike). Returns the validated data.
 $validated = Forms::validate(form: $form, request: request());
 
 // Persist a submission for every field. Returns a SubmissionResult.
@@ -307,7 +319,7 @@ $result->submittedAt; // CarbonInterface timestamp
 | `submissions($form)` | a `SubmissionQuery` reader (below) |
 | `submission($uuid \| FormSubmission)` | a `SubmissionHandle`: `get()`, `model()`, `uuid()`, `finalize()`, `review()` |
 | `review($uuid \| FormSubmission)` | a `PendingSubmissionReview` (see Submission review) |
-| `createSubmission($field, $value, …)` | one raw field row (imports, seeds) |
+| `createSubmission($field, $value, ?$sender, ?$uuid, bypassClosed:)` | one raw field row (imports, seeds), filed under its uuid's submission |
 | `fake()` | swap in `FormsFake` (see Testing your application) |
 
 #### Without the facade
@@ -350,7 +362,20 @@ Forms::finalize($uuid, bypassClosed: true);
 
 Three readable helpers back this: `$form->isExpired()`, `$form->isAcceptingSubmissions()`
 (public **and** not expired) and `$form->ensureAcceptingSubmissions()` (throws when it isn't).
-`$field->isRequired()` reports whether a field carries a `required` rule.
+`$field->isRequired()` reports whether a field carries a plain `required` rule — a rule that
+requires it only under a condition (`required_if`, `required_with`, …) does not count.
+
+`createSubmission()` writes one row directly. Rows that share a `uuid` are filed under one
+submission, created by the first of them, so `Forms::submission($uuid)` reads it and
+`Forms::review($uuid)` reviews it like any other. A malformed uuid, or one that names another
+form's submission or a draft, throws `SubmissionNotFoundException`:
+
+```php
+$first = Forms::createSubmission($nameField, ['value' => 'Ann'], $user, bypassClosed: true);
+Forms::createSubmission($emailField, ['value' => 'ann@example.com'], $user, uuid: $first->uuid, bypassClosed: true);
+
+Forms::submission($first->uuid)->get()->values; // ['name' => 'Ann', 'email' => 'ann@example.com']
+```
 
 ### Draft submissions (save & resume)
 
@@ -365,14 +390,24 @@ Forms::draft($form, request(), $user, uuid: $draft->uuid);
 Forms::finalize($draft->uuid);            // or Forms::submission($draft->uuid)->finalize()
 ```
 
-Drafts are excluded from final-submission reads by default. Only a draft of the same form can
-be resumed: a finalized submission's uuid, another form's draft or a malformed uuid throws
-`DraftNotFoundException`, and the stored submission is left untouched.
+Drafts are excluded from final-submission reads by default. Only a draft of the same form, saved
+by the same sender, can be resumed: a finalized submission's uuid, another form's draft, another
+sender's draft (an anonymous draft stays anonymous) or a malformed uuid throws
+`DraftNotFoundException`, and the stored submission is left untouched. Resuming replaces the
+draft's uploads (the old files are deleted).
+
+Finalizing validates what the draft stored — uploads included, as the files they were, so `file`,
+`mimes` and `max` rules apply — and keeps no value for a field its conditions now hide. Two
+finalizes racing for one draft promote it once: the other throws `DraftNotFoundException` and
+fires nothing.
 
 ### Reading submissions
 
 `Forms::submissions($form)` returns a fluent reader that assembles the per-field rows back
-into one keyed `[field_key => value]` set per submission:
+into one keyed `[field_key => value]` set per submission, in form order (groups, then fields, by
+`order`). A field key two groups of the form share is keyed `group_key.field_key` instead, so
+neither answer overwrites the other (`['applicant.name' => 'Kid', 'guardian.name' => 'Parent']`).
+Answers given to a field that was soft-deleted later are still read:
 
 ```php
 $answers = Forms::submissions($form)
@@ -426,15 +461,20 @@ values read back as real PHP types instead of raw strings, and submitted values 
 during validation:
 
 ```php
-$submission->typedValue();               // 42 (int) for a `number` field, true (bool) for `checkbox`
-
 Forms::submissions($form)->first()->values;
 // ['age' => 42, 'subscribed' => true, 'born' => CarbonImmutable, 'tags' => ['a', 'b']]
+
+// One per-field row (a `Submission`) reads its own value the same way:
+$row = $form->fields->firstWhere('key', 'age')->submissions()->first();
+$row->typedValue();                      // 42 (int); true (bool) for a `checkbox` row
 ```
 
-A value that doesn't satisfy its field's type raises
-`RoundlyConsulting\Forms\Exceptions\InvalidFieldValueException` during `Forms::validate()`
-(and on finalize). Unlisted field types keep the historical free-form string behaviour.
+A value that doesn't satisfy its field's type fails `Forms::validate()` (and finalize) with a
+`ValidationException` under the field's path — `The Age field must be a valid integer.` — like any
+other rule (a decimal in a `number()` field is one). A stored value that no longer converts (data
+written before a type change, or straight through `createSubmission()`) reads back exactly as
+stored instead of breaking the reader. Unlisted field types — `time` among them — keep the
+free-form string behaviour.
 
 ### File uploads (media)
 
@@ -470,8 +510,9 @@ while uploads are private.
 ### Submission review (approvals)
 
 Enable `forms.approvals.enabled` and route a whole submission — the `FormSubmission` aggregate —
-through the approvals engine for multi-approver sign-off. The decision is mirrored back onto the
-submission status automatically:
+through the approvals engine for sign-off by the reviewers you name. The decision is mirrored back
+onto the submission status automatically. Reviewers are models using approvals-for-laravel's
+`RoundlyConsulting\Approvals\Traits\GivesApprovals` trait:
 
 ```php
 $submission = Forms::submission($result->uuid)->model();
@@ -484,13 +525,20 @@ Forms::review($submission)         // or Forms::review($uuid), Forms::submission
 $lead->approve($submission);       // decisions flow into the open request
 $qa->approve($submission);         // quorum met -> status Approved, SubmissionApproved fired
 
+$submission->refresh();            // the status moved in the database: reload this instance
 $submission->isApproved();         // true
 $submission->isPendingApproval();  // false
 ```
 
-Approvals fire `SubmissionApproved` / `SubmissionRejected` / `SubmissionStatusChanged`. A
-rejection carries the rejecting actor. With reviews disabled (the default), submissions keep the
-plain submit/finalize lifecycle.
+Only the reviewers named in `requiring()` — or their delegates — can decide: anyone else,
+the submitter included, gets approvals' `UnauthorizedApprovalException` and nothing is recorded.
+`requiring()` is therefore mandatory; opening a review that names nobody throws
+`SubmissionNotReviewableException`. A decided submission can be reviewed again (a new request,
+back to Pending), and the same reviewers decide it afresh.
+
+Approvals fire `SubmissionApproved` / `SubmissionRejected` / `SubmissionStatusChanged` — once per
+outcome, even when two decisions race to resolve it. A rejection carries the rejecting actor.
+With reviews disabled (the default), submissions keep the plain submit/finalize lifecycle.
 
 ### The HasForms trait
 
@@ -507,7 +555,8 @@ class User extends Authenticatable
 
 $user->submitTo($form, request());     // Forms::submit with $user as sender
 $user->draftTo($form, request());      // Forms::draft — both go through the manager, so Forms::fake() records them
-$user->formSubmissions;                // morphMany of the user's submissions
+$user->formSubmissions;                // morphMany of the user's per-field Submission rows (one per answered field)
+Forms::submissions($form)->forSender($user)->get(); // the user's whole submissions, assembled
 ```
 
 ### Declarative forms (`forms:sync`)
@@ -535,7 +584,9 @@ missing forms and updating changed ones, idempotently:
 php artisan forms:sync
 ```
 
-`Forms::sync($definitions)` runs the same logic with an explicit definition list.
+`Forms::sync($definitions)` runs the same logic with an explicit definition list. A definition's
+`expires_at` may be a date string (`'2031-01-01 00:00:00'`), a Unix timestamp or a date object;
+a group's or field's `order` defaults to its position, and an explicit `0` is kept.
 
 ### Reacting to events
 
@@ -569,11 +620,18 @@ Lookups throw package-specific exceptions, all extending
 - `UnresolvableFieldException` — no resolver is registered for a field's type.
 - `FormSubmissionClosedException` — submit, draft, finalize or `createSubmission()` attempted on
   a non-public or expired form (without `bypassClosed: true`).
-- `DraftNotFoundException` — `finalize()` called with an unknown draft uuid, or `draft()` asked
-  to resume a uuid that is not a draft of that form.
-- `InvalidFieldValueException` — a submitted value fails its field's mapped type check.
+- `DraftNotFoundException` — `finalize()` called with an unknown draft uuid (or one a racing
+  finalize already promoted), or `draft()` asked to resume a uuid that is not a draft of that
+  form saved by that sender.
+- `SubmissionNotFoundException` — `Forms::submission()` / `Forms::review()` given an unknown or
+  malformed uuid, or `createSubmission()` given a uuid that is malformed or names another form's
+  submission or a draft.
 - `ReviewsDisabledException` — `Forms::review()` used while `forms.approvals.enabled` is false.
-- `SubmissionNotReviewableException` — a review opened on a draft submission.
+- `SubmissionNotReviewableException` — a review opened on a draft submission, or naming no
+  reviewers.
+
+A value that fails its field's type is a validation failure, not an exception of its own: it
+throws Laravel's `ValidationException` (see Typed field values).
 
 Messages are translatable via the `forms::messages` namespace.
 
@@ -590,7 +648,13 @@ $openForms = Form::query()->public()->active()->get();
 
 All models use soft deletes — deleting a form keeps its rows and submissions in the
 database (recoverable with `restore()` / queryable with `withTrashed()`). Deletes are not
-cascaded, so soft-deleting a form leaves its groups, fields, and submissions intact.
+cascaded, so soft-deleting a form leaves its groups, fields, and submissions intact, and past
+submissions stay readable after a field, group or form they answered is soft-deleted.
+
+A soft-deleted form, group or field gives its `key` up: a new form can take the key (a new group
+or field theirs, within the same form or group), and `forms:sync` / `Forms::update()` re-create
+it. Restoring a record takes the key back — and fails with a unique-constraint violation while a
+live record holds it.
 
 ### Custom field resolvers
 
@@ -599,8 +663,9 @@ from storage (`fromStorage`). The package ships `DefaultResolver` and `MediaFile
 **File uploads** above). A resolver that needs the persisted submission row before it can store
 its value (like the media resolver) additionally implements
 `RoundlyConsulting\Forms\Resolvers\AttachesToSubmission`, whose `attach()` runs after the row is
-created. Implement `RoundlyConsulting\Forms\Resolvers\Resolver` and map it to a field `type` in
-`config/forms.php`:
+created, and whose `restoreUpload()` hands back a temporary copy of the stored file (or null) so
+finalizing a draft can validate it against the field's rules. Implement
+`RoundlyConsulting\Forms\Resolvers\Resolver` and map it to a field `type` in `config/forms.php`:
 
 ```php
 use Illuminate\Database\Eloquent\Model;
@@ -652,7 +717,7 @@ class CurrentUserEmail implements Autofill
 }
 
 // $field->getAutofillValue() resolves the class and returns its fill() result,
-// or the raw `autofill` string when it isn't a resolvable Autofill class.
+// or the raw `autofill` string when it isn't an Autofill class — such a class is never built.
 ```
 
 ### API resources
@@ -714,13 +779,15 @@ $fake->assertReviewOpened(fn (ApprovalRequest $request, FormSubmission $submissi
 | `review()->…->open()` | `assertReviewOpened(?callable(ApprovalRequest, FormSubmission))` | `assertNothingReviewed()` |
 
 The `InteractsWithForms` trait adds ergonomic helpers to your test case
-(`fakeForms()`, `submitForm($form, $values, $sender)`, `draftForm(...)`):
+(`fakeForms()`, `submitForm($form, $values, $sender)`, `draftForm(...)`). Values are nested per
+group or flat by `group_key.field_key` (one style per group):
 
 ```php
 uses(RoundlyConsulting\Forms\Testing\InteractsWithForms::class);
 
 $fake = $this->fakeForms();
 $this->submitForm($form, ['details' => ['name' => 'Ann']]);
+$this->submitForm($form, ['details.name' => 'Ann']);   // the same submission, flat
 $fake->assertSubmitted($form);
 ```
 
