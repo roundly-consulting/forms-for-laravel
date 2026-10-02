@@ -136,8 +136,13 @@ class FormsManager
     /**
      * Write a single field row directly. The row carries no draft status, so it reads as a
      * final submission — it obeys the closed-form rule unless `$bypassClosed` (imports, seeds).
+     * Rows sharing a `$uuid` are filed under one submission, created by the first of them,
+     * which `submission($uuid)` reads and `review($uuid)` reviews like any other.
      *
      * @param  array<array-key, mixed>  $value
+     *
+     * @throws SubmissionNotFoundException when `$uuid` is malformed, or names another form's
+     *                                     submission or a draft
      */
     public function createSubmission(Field $field, array $value, ?Model $sender = null, ?string $uuid = null, bool $bypassClosed = false): Submission
     {
