@@ -47,6 +47,10 @@ return [
      * submitted values. Types not listed here fall back to a plain string,
      * preserving the historical raw-value behaviour. Values must be one of the
      * AttributeType cases: string, integer, float, boolean, array, datetime.
+     *
+     * `number` and `range` are whole numbers; use a `decimal` or `float` field for
+     * fractions. A `time` field is left unmapped on purpose: a time of day is not a
+     * moment, so it reads back exactly as stored (validate it with e.g. `date_format:H:i`).
      */
     'field_types' => [
         'number' => 'integer',
@@ -58,7 +62,6 @@ return [
         'toggle' => 'boolean',
         'date' => 'datetime',
         'datetime' => 'datetime',
-        'time' => 'datetime',
         'multiselect' => 'array',
         'checkboxes' => 'array',
         'tags' => 'array',

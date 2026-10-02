@@ -57,7 +57,6 @@ it('ships exactly the config keys it reads', function (): void {
             'forms.field_types.toggle',
             'forms.field_types.date',
             'forms.field_types.datetime',
-            'forms.field_types.time',
             'forms.field_types.multiselect',
             'forms.field_types.checkboxes',
             'forms.field_types.tags',

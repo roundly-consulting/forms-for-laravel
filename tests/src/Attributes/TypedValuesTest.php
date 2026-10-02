@@ -199,3 +199,27 @@ it('reports every field that fails its type check at once', function () {
         expect(array_keys($exception->errors()))->toBe(['mixed.main.qty', 'mixed.main.terms']);
     });
 });
+
+/*
+ * Review fixes (2026-09-28) — a `time` field is a time of day, not a moment: it reads back
+ * exactly as stored instead of picking up the date of the day it is read on.
+ */
+
+it('reads a time field back as stored, whatever the day it is read on', function () {
+    $field = typedField('time');
+    storeValue($field, '14:30');
+
+    $read = function () use ($field): mixed {
+        return Submission::query()->where('field_id', $field->getKey())->sole()->typedValue();
+    };
+
+    CarbonImmutable::setTestNow('2031-05-05 09:00:00');
+    $first = $read();
+    CarbonImmutable::setTestNow('2031-05-06 09:00:00');
+    $second = $read();
+    CarbonImmutable::setTestNow();
+
+    expect($field->attributeType())->toBe(AttributeType::String_)
+        ->and($first)->toBe('14:30')
+        ->and($second)->toBe('14:30');
+});
