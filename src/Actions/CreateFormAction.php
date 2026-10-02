@@ -46,7 +46,7 @@ final readonly class CreateFormAction
             'form_id' => $form->getKey(),
             'key' => $data->key,
             'name' => $data->name,
-            'order' => $data->order !== 0 ? $data->order : $defaultOrder,
+            'order' => $data->order ?? $defaultOrder,
         ]);
 
         foreach ($data->fields as $fieldOrder => $fieldData) {
@@ -73,7 +73,7 @@ final readonly class CreateFormAction
             'validations' => $data->validations,
             'conditions' => $data->conditions,
             'messages' => $data->messages,
-            'order' => $data->order !== 0 ? $data->order : $defaultOrder,
+            'order' => $data->order ?? $defaultOrder,
         ]);
 
         return $field;

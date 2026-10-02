@@ -17,7 +17,7 @@ it('constructs a field definition with defaults', function () {
         ->and($field->autofill)->toBeNull()
         ->and($field->options)->toBeNull()
         ->and($field->validations)->toBeNull()
-        ->and($field->order)->toBe(0);
+        ->and($field->order)->toBeNull(); // null = its position in the group
 });
 
 it('builds a field definition from a loose array', function () {

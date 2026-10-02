@@ -6,11 +6,14 @@ namespace RoundlyConsulting\Forms\DataTransferObjects;
 
 final readonly class GroupDefinitionData
 {
-    /** @param  list<FieldDefinitionData>  $fields */
+    /**
+     * @param  int|null  $order  null = the group's position in the definition (an explicit 0 is kept)
+     * @param  list<FieldDefinitionData>  $fields
+     */
     public function __construct(
         public string $key,
         public string $name,
-        public int $order = 0,
+        public ?int $order = null,
         public array $fields = [],
     ) {}
 
@@ -23,7 +26,7 @@ final readonly class GroupDefinitionData
         return new self(
             key: (string) $data['key'],
             name: (string) $data['name'],
-            order: isset($data['order']) ? (int) $data['order'] : 0,
+            order: isset($data['order']) ? (int) $data['order'] : null,
             fields: array_map(
                 static fn (array $field): FieldDefinitionData => FieldDefinitionData::fromArray($field),
                 $fields,

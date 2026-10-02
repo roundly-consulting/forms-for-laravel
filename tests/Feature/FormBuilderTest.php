@@ -67,3 +67,48 @@ it('supports options and help on builder fields and explicit group order', funct
         ->and($field->help)->toBe('Pick one')
         ->and(Group::query()->where('key', 'first')->sole()->order)->toBe(7);
 });
+
+/*
+ * Review fixes (2026-09-28) — an explicit `order(0)` is an order like any other; only an
+ * order that was never given falls back to the declaration index.
+ */
+
+it('keeps an explicit order of 0 on create, update and sync', function () {
+    Forms::define('ranked', 'Ranked')
+        ->group('later', 'Later', fn (GroupBuilder $g) => $g->order(3)->field('a', 'A')->order(5))
+        ->group('first', 'First', function (GroupBuilder $g): void {
+            $g->order(0);
+            $g->field('x', 'X');
+            $g->field('b', 'B')->order(0);
+        })
+        ->create();
+
+    $order = fn (string $model, string $key): int => $model::query()->where('key', $key)->sole()->order;
+
+    expect($order(Group::class, 'later'))->toBe(3)
+        ->and($order(Group::class, 'first'))->toBe(0)
+        ->and($order(Field::class, 'a'))->toBe(5)
+        ->and($order(Field::class, 'b'))->toBe(0);
+
+    Forms::update('ranked')
+        ->group('later', 'Later', fn (GroupBuilder $g) => $g->field('a', 'A')->order(0))
+        ->save();
+
+    expect($order(Field::class, 'a'))->toBe(0)
+        ->and($order(Group::class, 'later'))->toBe(0);
+
+    Forms::sync([[
+        'key' => 'ranked',
+        'name' => 'Ranked',
+        'groups' => [
+            ['key' => 'later', 'name' => 'Later', 'order' => 4, 'fields' => [['key' => 'a', 'name' => 'A', 'order' => 2]]],
+            ['key' => 'first', 'name' => 'First', 'order' => 0, 'fields' => [['key' => 'x', 'name' => 'X'], ['key' => 'b', 'name' => 'B', 'order' => 0]]],
+        ],
+    ]]);
+
+    expect($order(Group::class, 'later'))->toBe(4)
+        ->and($order(Group::class, 'first'))->toBe(0)
+        ->and($order(Field::class, 'a'))->toBe(2)
+        ->and($order(Field::class, 'x'))->toBe(0)
+        ->and($order(Field::class, 'b'))->toBe(0);
+});

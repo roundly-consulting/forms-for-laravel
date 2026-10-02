@@ -60,7 +60,7 @@ final readonly class UpdateFormAction
     {
         $groupModel = GroupModel::class();
 
-        $order = $data->order !== 0 ? $data->order : $defaultOrder;
+        $order = $data->order ?? $defaultOrder;
 
         $group = $form->groups->firstWhere('key', $data->key);
 
@@ -94,7 +94,7 @@ final readonly class UpdateFormAction
     {
         $fieldModel = FieldModel::class();
 
-        $order = $data->order !== 0 ? $data->order : $defaultOrder;
+        $order = $data->order ?? $defaultOrder;
 
         $attributes = [
             'name' => $data->name,

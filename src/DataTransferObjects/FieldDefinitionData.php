@@ -9,6 +9,7 @@ final readonly class FieldDefinitionData
     /**
      * @param  array<array-key, mixed>|null  $options
      * @param  array<array-key, mixed>|null  $validations
+     * @param  int|null  $order  null = the field's position in its group (an explicit 0 is kept)
      * @param  list<array<string, mixed>>|null  $conditions
      * @param  array<string, string>|null  $messages
      */
@@ -20,7 +21,7 @@ final readonly class FieldDefinitionData
         public ?string $autofill = null,
         public ?array $options = null,
         public ?array $validations = null,
-        public int $order = 0,
+        public ?int $order = null,
         public ?array $conditions = null,
         public ?array $messages = null,
     ) {}
@@ -45,7 +46,7 @@ final readonly class FieldDefinitionData
             autofill: isset($data['autofill']) ? (string) $data['autofill'] : null,
             options: $options,
             validations: $validations,
-            order: isset($data['order']) ? (int) $data['order'] : 0,
+            order: isset($data['order']) ? (int) $data['order'] : null,
             conditions: $conditions,
             messages: $messages,
         );
