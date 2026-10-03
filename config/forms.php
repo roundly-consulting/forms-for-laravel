@@ -35,6 +35,8 @@ return [
 
     'key_type' => env('FORMS_KEY_TYPE', 'bigint'),
 
+    // Field type => Resolver class ('default' covers every unmapped type). Each value must
+    // be a class implementing Resolver; anything else throws.
     'fields' => [
         'default' => DefaultResolver::class,
         'file' => MediaFileResolver::class,
@@ -46,7 +48,8 @@ return [
      * cast its stored value back to a real PHP type on read and to type-check
      * submitted values. Types not listed here fall back to a plain string,
      * preserving the historical raw-value behaviour. Values must be one of the
-     * AttributeType cases: string, integer, float, boolean, array, datetime.
+     * AttributeType cases: string, integer, float, boolean, array, datetime — any
+     * other value throws an InvalidConfigurationException.
      *
      * `number` and `range` are whole numbers; use a `decimal` or `float` field for
      * fractions. A `time` field is left unmapped on purpose: a time of day is not a
@@ -78,6 +81,7 @@ return [
         'bucket' => 'attachment',
 
         // Visibility of stored uploads: 'private' (default, signed streaming) or 'public'.
+        // Anything else throws.
         'visibility' => 'private',
 
         // Disk for the submission media, whatever its visibility. null => chosen by visibility:
@@ -94,13 +98,13 @@ return [
         // Restrict accepted mime types. null/[] => the media-library default (open).
         'accepted_mime_types' => null,
 
-        // Max upload size in bytes. null => the media-library default.
+        // Max upload size in bytes (at least 1). null => the media-library default.
         'max_file_size' => null,
 
-        // Responsive image widths. null => the media-library default ladder.
+        // Responsive image widths (positive integers). null => the media-library default ladder.
         'responsive_widths' => null,
 
-        // Lifetime (minutes) of a signed attachment URL. null => the media default.
+        // Lifetime (minutes, at least 1) of a signed attachment URL. null => the media default.
         'temporary_url_lifetime' => null,
     ],
 

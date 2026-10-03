@@ -22,12 +22,12 @@ it('ships exactly the config keys it reads', function (): void {
         // scraper.
         'extraReadPrefixes' => ['forms.'],
 
-        // `Field::resolver()` reads the resolver map wholesale and then falls back to a
-        // LITERAL offset: `$resolvers[$this->type] ?? $resolvers['default']`. Declaring the
+        // `FormsConfig::resolver()` reads the resolver map wholesale and then falls back to a
+        // LITERAL offset: `$resolvers[$type]`, else `$resolvers['default']`. Declaring the
         // variable proves `forms.fields.default` is genuinely read by name rather than
         // allow-listed away — the fallback every unmapped field type depends on.
         'sectionVariables' => [
-            'Field.php' => [
+            'FormsConfig.php' => [
                 '$resolvers' => 'forms.fields',
             ],
         ],

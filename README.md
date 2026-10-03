@@ -148,19 +148,25 @@ return [
 | `models.submission` | `class-string` | `Models\Submission` | Model used for per-field submission rows. |
 | `models.form_submission` | `class-string` | `Models\FormSubmission` | Aggregate model grouping a submission's rows (the approvals subject). |
 | `key_type` | `string` | `bigint` (`FORMS_KEY_TYPE`) | Key type of the polymorphic `sender_id` columns — `bigint`, `uuid` or `ulid`. Set it to match your senders' primary keys before migrating (any other value throws `InvalidConfigurationException`); the sender key is stored and read back as-is (`AssembledSubmission::$senderId` is `int\|string\|null`). |
-| `fields.default` | `class-string` | `Resolvers\DefaultResolver` | Resolver used for any field type without a specific mapping. |
+| `fields.default` | `class-string` | `Resolvers\DefaultResolver` | Resolver used for any field type without a specific mapping. Every `fields.*` entry must be a `Resolver` class; anything else throws `InvalidConfigurationException`. |
 | `fields.file` / `fields.image` | `class-string` | `Resolvers\MediaFileResolver` | Media-backed resolver; stores the upload as media on the submission row. |
-| `field_types` | `array<string,string>` | see config | Maps a field `type` to an `AttributeType` for typed reads + validation. Shipped: `number`/`range` → `integer`, `float`/`decimal` → `float`, `checkbox`/`boolean`/`toggle` → `boolean`, `date`/`datetime` → `datetime`, `multiselect`/`checkboxes`/`tags` → `array`. `time` is left unmapped on purpose (a time of day reads back as stored). |
-| `media.bucket` | `string` | `attachment` | Media bucket the submission row registers uploads into. |
-| `media.visibility` | `string` | `private` | `private` (only ever linked via signed URLs) or `public`. |
+| `field_types` | `array<string,string>` | see config | Maps a field `type` to an `AttributeType` for typed reads + validation. Shipped: `number`/`range` → `integer`, `float`/`decimal` → `float`, `checkbox`/`boolean`/`toggle` → `boolean`, `date`/`datetime` → `datetime`, `multiselect`/`checkboxes`/`tags` → `array`. `time` is left unmapped on purpose (a time of day reads back as stored). An unmapped type reads as a string; a mapped value that is not an `AttributeType` (`integr`) throws `InvalidConfigurationException`. |
+| `media.bucket` | `string` | `attachment` | Media bucket the submission row registers uploads into (non-empty string). |
+| `media.visibility` | `string` | `private` | `private` (only ever linked via signed URLs) or `public`; anything else throws. |
 | `media.disk` | `?string` | `null` (`FORMS_MEDIA_DISK`) | Disk every upload is stored on. `null` = by visibility: private → `media.private_disk`, public → media-library's default disk. |
 | `media.private_disk` | `string` | `local` (`FORMS_MEDIA_PRIVATE_DISK`) | Non-public disk for private uploads and their variants when `media.disk` is `null`. |
-| `media.accepted_mime_types` | `?array` | `null` | Restrict accepted mime types (null = open). |
-| `media.max_file_size` | `?int` | `null` | Max upload size in bytes (null = media default). |
-| `media.responsive_widths` | `?array` | `null` | Responsive image widths (null = media default ladder). |
-| `media.temporary_url_lifetime` | `?int` | `null` | Signed URL lifetime in minutes (null = media default). |
+| `media.accepted_mime_types` | `?array` | `null` | Restrict accepted mime types to a list of non-empty strings (null or `[]` = open). |
+| `media.max_file_size` | `?int` | `null` | Max upload size in bytes, at least `1` (null = media default). |
+| `media.responsive_widths` | `?array` | `null` | Responsive image widths, positive integers (null = media default ladder). |
+| `media.temporary_url_lifetime` | `?int` | `null` | Signed URL lifetime in minutes, at least `1` (null = media default). |
 | `approvals.enabled` | `bool` | `false` (`FORMS_APPROVALS_ENABLED`) | Enable routing submissions through the approvals engine. Read strictly: `true`/`1`/`on`/`yes` or `false`/`0`/`off`/`no`; anything else throws `InvalidConfigurationException`. |
-| `definitions` | `array` | `[]` | Declarative form definitions synced by `forms:sync`. |
+| `definitions` | `array` | `[]` | Declarative form definitions synced by `forms:sync` (each entry an array). |
+
+A default applies only when a key is absent (unset or `null`). Every value that is present must
+fit: integers accept an `int` or a plain integer string (every env value is a string), so `10MB`,
+`5.5` or a blank value throws rather than being ignored; a blank or non-string bucket or disk
+name, a `media.visibility` typo (it no longer reads as private), or a junk list entry throws
+`InvalidConfigurationException`. `php artisan about` renders a broken setting as `INVALID`.
 
 ## Usage
 

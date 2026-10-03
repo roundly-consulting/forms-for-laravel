@@ -16,6 +16,7 @@ use RoundlyConsulting\Forms\Models\Form;
 use RoundlyConsulting\Forms\Models\Group;
 use RoundlyConsulting\Forms\Models\Submission;
 use RoundlyConsulting\Forms\Submissions\SubmissionQuery;
+use RoundlyConsulting\PackageToolkit\Exceptions\InvalidConfigurationException;
 
 function typedField(string $type): Field
 {
@@ -53,10 +54,25 @@ it('maps field types to attribute types', function () {
         ->and(typedField('text')->attributeType())->toBe(AttributeType::String_);
 });
 
-it('falls back to string for an unmapped type via a bad config value', function () {
+it('refuses a field type mapped to an unknown attribute type (strict config)', function () {
     config()->set('forms.field_types.weird', 'not-a-type');
 
-    expect(typedField('weird')->attributeType())->toBe(AttributeType::String_);
+    expect(fn () => typedField('weird')->attributeType())->toThrow(
+        InvalidConfigurationException::class,
+        'Configuration value [forms.field_types.weird] must be one of [string, integer, float, boolean, array, datetime], [not-a-type] given.',
+    );
+});
+
+it('refuses a field type map that is not an array (strict config)', function () {
+    config()->set('forms.field_types', 'number:integer');
+
+    expect(fn () => typedField('number')->attributeType())->toThrow(InvalidConfigurationException::class, 'forms.field_types');
+});
+
+it('reads an unmapped field type as a string (strict config)', function () {
+    config()->set('forms.field_types', null);
+
+    expect(typedField('number')->attributeType())->toBe(AttributeType::String_);
 });
 
 it('casts a stored number value back to an int', function () {

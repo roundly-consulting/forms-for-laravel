@@ -24,6 +24,7 @@ use RoundlyConsulting\Forms\Exceptions\UnresolvableFieldException;
 use RoundlyConsulting\Forms\Resolvers\Resolver;
 use RoundlyConsulting\Forms\Support\FieldModel;
 use RoundlyConsulting\Forms\Support\FormModel;
+use RoundlyConsulting\Forms\Support\FormsConfig;
 use RoundlyConsulting\Forms\Support\GroupModel;
 use RoundlyConsulting\Forms\Support\SubmissionModel;
 use Throwable;
@@ -201,21 +202,12 @@ class Field extends Model
 
     /**
      * The attributes {@see AttributeType} this field's stored value maps to,
-     * driven by the `forms.field_types` map. Unmapped field types fall back to
-     * a plain string, preserving the historical raw-value behaviour.
+     * driven by the `forms.field_types` map. A field type the map does not list is a
+     * plain string; a mapped value that is not an AttributeType throws.
      */
     public function attributeType(): AttributeType
     {
-        /** @var array<string, string> $map */
-        $map = config('forms.field_types', []);
-
-        $mapped = $map[$this->type] ?? null;
-
-        if (is_string($mapped)) {
-            return AttributeType::tryFrom($mapped) ?? AttributeType::String_;
-        }
-
-        return AttributeType::String_;
+        return FormsConfig::fieldType($this->type);
     }
 
     /**
@@ -282,10 +274,7 @@ class Field extends Model
 
     public function resolver(): Resolver
     {
-        /** @var array<string, class-string<Resolver>> $resolvers */
-        $resolvers = config('forms.fields', []);
-
-        $resolver = $resolvers[$this->type] ?? $resolvers['default'] ?? null;
+        $resolver = FormsConfig::resolver($this->type);
 
         if ($resolver === null) {
             throw UnresolvableFieldException::forType($this->type);

@@ -9,6 +9,7 @@ use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use RoundlyConsulting\Forms\Models\Submission;
+use RoundlyConsulting\Forms\Support\FormsConfig;
 use RoundlyConsulting\MediaLibrary\Buckets\MediaBucket;
 use RoundlyConsulting\MediaLibrary\Concerns\InteractsWithMedia;
 use RoundlyConsulting\MediaLibrary\Models\Media;
@@ -47,15 +48,15 @@ trait HasSubmissionMedia
         $bucket = $this->addMediaBucket($this->attachmentBucket())
             ->withVisibility($this->attachmentVisibility());
 
-        $accepted = config('forms.media.accepted_mime_types');
+        $accepted = FormsConfig::acceptedMimeTypes();
 
-        if (is_array($accepted) && $accepted !== []) {
-            $bucket->acceptsMimeTypes($this->stringList($accepted));
+        if ($accepted !== []) {
+            $bucket->acceptsMimeTypes($accepted);
         }
 
-        $maxFileSize = config('forms.media.max_file_size');
+        $maxFileSize = FormsConfig::maxFileSize();
 
-        if (is_int($maxFileSize) && $maxFileSize > 0) {
+        if ($maxFileSize !== null) {
             $bucket->maxFileSize($maxFileSize);
         }
 
@@ -129,89 +130,36 @@ trait HasSubmissionMedia
 
     public function attachmentBucket(): string
     {
-        return (string) config('forms.media.bucket', 'attachment');
+        return FormsConfig::bucket();
     }
 
     private function attachmentVisibility(): string
     {
-        $visibility = config('forms.media.visibility', 'private');
-
-        return $visibility === 'public' ? 'public' : 'private';
+        return FormsConfig::visibility();
     }
 
     private function configureMediaBucket(MediaBucket $bucket): MediaBucket
     {
-        $disk = config('forms.media.disk');
+        $disk = FormsConfig::disk();
 
-        if (is_string($disk) && $disk !== '') {
+        if ($disk !== null) {
             $bucket->useDisk($disk);
-        } elseif ($this->attachmentVisibility() === 'private') {
+        } elseif ($this->attachmentVisibility() === FormsConfig::VISIBILITY_PRIVATE) {
             // A private upload must not land on media-library's default disk: that is the
             // web-served `public` disk, where the file is reachable under /storage without the
             // signed URL. Its variants follow it, whatever `media.variants_disk` says.
-            $privateDisk = $this->privateAttachmentDisk();
+            $privateDisk = FormsConfig::privateDisk();
 
             $bucket->useDisk($privateDisk)->storingVariantsOnDisk($privateDisk);
         }
 
-        $widths = config('forms.media.responsive_widths');
-
-        $bucket->responsiveWidths(
-            is_array($widths) ? $this->normalizeWidths($widths) : null,
-        );
+        $bucket->responsiveWidths(FormsConfig::responsiveWidths());
 
         return $bucket;
     }
 
-    private function privateAttachmentDisk(): string
-    {
-        $disk = config('forms.media.private_disk', 'local');
-
-        return is_string($disk) && $disk !== '' ? $disk : 'local';
-    }
-
     private function temporaryUrlExpiry(): DateTimeInterface
     {
-        $minutes = config('forms.media.temporary_url_lifetime');
-
-        if (! is_numeric($minutes)) {
-            $minutes = config('media.temporary_url_default_lifetime', 5);
-        }
-
-        return CarbonImmutable::now()->addMinutes(is_numeric($minutes) ? (int) $minutes : 5);
-    }
-
-    /**
-     * @param  array<array-key, mixed>  $values
-     * @return list<string>
-     */
-    private function stringList(array $values): array
-    {
-        $clean = [];
-
-        foreach ($values as $value) {
-            if (is_string($value) && $value !== '') {
-                $clean[] = $value;
-            }
-        }
-
-        return $clean;
-    }
-
-    /**
-     * @param  array<array-key, mixed>  $widths
-     * @return list<int>
-     */
-    private function normalizeWidths(array $widths): array
-    {
-        $clean = [];
-
-        foreach ($widths as $width) {
-            if (is_int($width) && $width > 0) {
-                $clean[] = $width;
-            }
-        }
-
-        return $clean;
+        return CarbonImmutable::now()->addMinutes(FormsConfig::temporaryUrlLifetime());
     }
 }

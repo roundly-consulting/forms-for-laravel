@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace RoundlyConsulting\Forms;
 
+use Closure;
 use Illuminate\Support\Facades\Event;
 use RoundlyConsulting\Approvals\Events\ApprovalRequestResolved;
 use RoundlyConsulting\Forms\Commands\SyncFormsCommand;
@@ -11,10 +12,12 @@ use RoundlyConsulting\Forms\Facades\Forms;
 use RoundlyConsulting\Forms\Listeners\SyncSubmissionStatusFromApproval;
 use RoundlyConsulting\Forms\Support\FieldModel;
 use RoundlyConsulting\Forms\Support\FormModel;
+use RoundlyConsulting\Forms\Support\FormsConfig;
 use RoundlyConsulting\Forms\Support\FormSubmissionModel;
 use RoundlyConsulting\Forms\Support\GroupModel;
 use RoundlyConsulting\Forms\Support\SubmissionModel;
 use RoundlyConsulting\PackageToolkit\Concerns\RegistersBlueprintMacros;
+use RoundlyConsulting\PackageToolkit\Exceptions\InvalidConfigurationException;
 use RoundlyConsulting\PackageToolkit\Package;
 use RoundlyConsulting\PackageToolkit\PackageServiceProvider;
 use RoundlyConsulting\PackageToolkit\Support\Config;
@@ -45,15 +48,19 @@ final class FormsServiceProvider extends PackageServiceProvider
                 'Field model' => class_basename(FieldModel::class()),
                 'Submission model' => class_basename(SubmissionModel::class()),
                 'Aggregate model' => class_basename(FormSubmissionModel::class()),
-                'Field resolvers' => self::listSize('forms.fields', 'resolver', 'DEFAULT ONLY'),
-                'Typed field types' => self::listSize('forms.field_types', 'mapping', 'RAW STRINGS'),
-                'Declared forms' => self::listSize('forms.definitions', 'definition', 'NONE'),
-                'Attachments' => self::attachments(),
-                'Attachment disk' => self::presence('forms.media.disk', 'MEDIA DEFAULT'),
-                'Accepted types' => self::listSize('forms.media.accepted_mime_types', 'mime type', 'ANY'),
-                'Max upload size' => self::bytes(),
-                'Responsive widths' => self::listSize('forms.media.responsive_widths', 'width', 'MEDIA DEFAULT'),
-                'Signed URL lifetime' => self::signedUrlLifetime(),
+                'Field resolvers' => self::orInvalid(static fn (): string => self::count(FormsConfig::resolverMap(), 'resolver', 'DEFAULT ONLY')),
+                'Typed field types' => self::orInvalid(static fn (): string => self::count(FormsConfig::fieldTypeMap(), 'mapping', 'RAW STRINGS')),
+                'Declared forms' => self::orInvalid(static fn (): string => self::count(FormsConfig::definitions(), 'definition', 'NONE')),
+                'Attachments' => self::orInvalid(static fn (): string => sprintf(
+                    '%s bucket (%s)',
+                    FormsConfig::bucket(),
+                    FormsConfig::visibility(),
+                )),
+                'Attachment disk' => self::orInvalid(static fn (): string => FormsConfig::disk() === null ? 'MEDIA DEFAULT' : 'SET'),
+                'Accepted types' => self::orInvalid(static fn (): string => self::count(FormsConfig::acceptedMimeTypes(), 'mime type', 'ANY')),
+                'Max upload size' => self::orInvalid(static fn (): string => ($max = FormsConfig::maxFileSize()) === null ? 'MEDIA DEFAULT' : $max.' B'),
+                'Responsive widths' => self::orInvalid(static fn (): string => self::count(FormsConfig::responsiveWidths() ?? [], 'width', 'MEDIA DEFAULT')),
+                'Signed URL lifetime' => self::orInvalid(static fn (): string => ($minutes = FormsConfig::configuredTemporaryUrlLifetime()) === null ? 'MEDIA DEFAULT' : $minutes.' min'),
                 'Submission review' => Config::boolean('forms.approvals.enabled') ? 'ON (approvals)' : 'OFF',
             ]);
     }
@@ -77,54 +84,28 @@ final class FormsServiceProvider extends PackageServiceProvider
     }
 
     /**
-     * The size of a configured list, never its entries — a form key, a field type
-     * and a mime type are all host vocabulary.
+     * The size of a configured list, never its entries — a form key, a field type and a mime
+     * type are all host vocabulary.
+     *
+     * @param  array<array-key, mixed>  $values
      */
-    private static function listSize(string $key, string $noun, string $absent): string
+    private static function count(array $values, string $noun, string $absent): string
     {
-        $value = config($key);
-
-        if (! is_array($value) || $value === []) {
-            return $absent;
-        }
-
-        return sprintf('%d %s(s)', count($value), $noun);
+        return $values === [] ? $absent : sprintf('%d %s(s)', count($values), $noun);
     }
 
     /**
-     * Whether a config key holds a non-empty value — never the value itself. The
-     * attachment disk names a host filesystem.
+     * A strict read rendered for `about`, or `INVALID` when the setting is broken — so
+     * `php artisan about` still works on a misconfigured host while every real read throws.
+     *
+     * @param  Closure(): string  $read
      */
-    private static function presence(string $key, string $absent): string
+    private static function orInvalid(Closure $read): string
     {
-        $value = config($key);
-
-        return is_string($value) && $value !== '' ? 'SET' : $absent;
-    }
-
-    private static function attachments(): string
-    {
-        $bucket = config('forms.media.bucket');
-        $visibility = config('forms.media.visibility');
-
-        return sprintf(
-            '%s bucket (%s)',
-            is_string($bucket) && $bucket !== '' ? $bucket : 'attachment',
-            is_string($visibility) && $visibility !== '' ? $visibility : 'private',
-        );
-    }
-
-    private static function bytes(): string
-    {
-        $max = config('forms.media.max_file_size');
-
-        return is_numeric($max) ? ((int) $max).' B' : 'MEDIA DEFAULT';
-    }
-
-    private static function signedUrlLifetime(): string
-    {
-        $minutes = config('forms.media.temporary_url_lifetime');
-
-        return is_numeric($minutes) ? ((int) $minutes).' min' : 'MEDIA DEFAULT';
+        try {
+            return $read();
+        } catch (InvalidConfigurationException) {
+            return 'INVALID';
+        }
     }
 }

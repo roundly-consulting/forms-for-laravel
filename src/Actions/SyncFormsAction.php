@@ -6,6 +6,7 @@ namespace RoundlyConsulting\Forms\Actions;
 
 use RoundlyConsulting\Forms\DataTransferObjects\FormDefinitionData;
 use RoundlyConsulting\Forms\Support\FormModel;
+use RoundlyConsulting\Forms\Support\FormsConfig;
 
 /**
  * Syncs declaratively-defined forms (from config or a passed list) into the
@@ -25,8 +26,7 @@ final readonly class SyncFormsAction
     public function execute(?array $definitions = null): array
     {
         if ($definitions === null) {
-            /** @var list<array<string, mixed>> $definitions */
-            $definitions = config('forms.definitions', []);
+            $definitions = FormsConfig::definitions();
         }
 
         $formModel = FormModel::class();
