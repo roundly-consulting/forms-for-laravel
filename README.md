@@ -147,7 +147,7 @@ return [
 | `models.field` | `class-string` | `Models\Field` | Model used for fields. |
 | `models.submission` | `class-string` | `Models\Submission` | Model used for per-field submission rows. |
 | `models.form_submission` | `class-string` | `Models\FormSubmission` | Aggregate model grouping a submission's rows (the approvals subject). |
-| `key_type` | `string` | `bigint` (`FORMS_KEY_TYPE`) | Key type of the polymorphic `sender_id` columns — `bigint`, `uuid` or `ulid`. Set it to match your senders' primary keys before migrating; the sender key is stored and read back as-is (`AssembledSubmission::$senderId` is `int\|string\|null`). |
+| `key_type` | `string` | `bigint` (`FORMS_KEY_TYPE`) | Key type of the polymorphic `sender_id` columns — `bigint`, `uuid` or `ulid`. Set it to match your senders' primary keys before migrating (any other value throws `InvalidConfigurationException`); the sender key is stored and read back as-is (`AssembledSubmission::$senderId` is `int\|string\|null`). |
 | `fields.default` | `class-string` | `Resolvers\DefaultResolver` | Resolver used for any field type without a specific mapping. |
 | `fields.file` / `fields.image` | `class-string` | `Resolvers\MediaFileResolver` | Media-backed resolver; stores the upload as media on the submission row. |
 | `field_types` | `array<string,string>` | see config | Maps a field `type` to an `AttributeType` for typed reads + validation. Shipped: `number`/`range` → `integer`, `float`/`decimal` → `float`, `checkbox`/`boolean`/`toggle` → `boolean`, `date`/`datetime` → `datetime`, `multiselect`/`checkboxes`/`tags` → `array`. `time` is left unmapped on purpose (a time of day reads back as stored). |
@@ -159,7 +159,7 @@ return [
 | `media.max_file_size` | `?int` | `null` | Max upload size in bytes (null = media default). |
 | `media.responsive_widths` | `?array` | `null` | Responsive image widths (null = media default ladder). |
 | `media.temporary_url_lifetime` | `?int` | `null` | Signed URL lifetime in minutes (null = media default). |
-| `approvals.enabled` | `bool` | `false` (`FORMS_APPROVALS_ENABLED`) | Enable routing submissions through the approvals engine. |
+| `approvals.enabled` | `bool` | `false` (`FORMS_APPROVALS_ENABLED`) | Enable routing submissions through the approvals engine. Read strictly: `true`/`1`/`on`/`yes` or `false`/`0`/`off`/`no`; anything else throws `InvalidConfigurationException`. |
 | `definitions` | `array` | `[]` | Declarative form definitions synced by `forms:sync`. |
 
 ## Usage
