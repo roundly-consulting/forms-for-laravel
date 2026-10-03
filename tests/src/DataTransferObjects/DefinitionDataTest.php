@@ -108,7 +108,7 @@ it('parses a string or timestamp expires_at from a definition array', function (
 
 it('reads an empty expires_at as no expiry', function (mixed $given) {
     expect(FormDefinitionData::fromArray(['key' => 'a', 'name' => 'A', 'expiresAt' => $given])->expiresAt)->toBeNull();
-})->with([null, '']);
+})->with([null, '', '   ']);
 
 it('syncs a definition whose expires_at is a string, idempotently', function () {
     Event::fake([FormUpdated::class]);

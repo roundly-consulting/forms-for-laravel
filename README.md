@@ -151,7 +151,7 @@ return [
 | `fields.default` | `class-string` | `Resolvers\DefaultResolver` | Resolver used for any field type without a specific mapping. Every `fields.*` entry must be a `Resolver` class; anything else throws `InvalidConfigurationException`. |
 | `fields.file` / `fields.image` | `class-string` | `Resolvers\MediaFileResolver` | Media-backed resolver; stores the upload as media on the submission row. |
 | `field_types` | `array<string,string>` | see config | Maps a field `type` to an `AttributeType` for typed reads + validation. Shipped: `number`/`range` → `integer`, `float`/`decimal` → `float`, `checkbox`/`boolean`/`toggle` → `boolean`, `date`/`datetime` → `datetime`, `multiselect`/`checkboxes`/`tags` → `array`. `time` is left unmapped on purpose (a time of day reads back as stored). An unmapped type reads as a string; a mapped value that is not an `AttributeType` (`integr`) throws `InvalidConfigurationException`. |
-| `media.bucket` | `string` | `attachment` | Media bucket the submission row registers uploads into (non-empty string). |
+| `media.bucket` | `string` | `attachment` | Media bucket the submission row registers uploads into (a string; blank = not set → `attachment`). |
 | `media.visibility` | `string` | `private` | `private` (only ever linked via signed URLs) or `public`; anything else throws. |
 | `media.disk` | `?string` | `null` (`FORMS_MEDIA_DISK`) | Disk every upload is stored on. `null` = by visibility: private → `media.private_disk`, public → media-library's default disk. |
 | `media.private_disk` | `string` | `local` (`FORMS_MEDIA_PRIVATE_DISK`) | Non-public disk for private uploads and their variants when `media.disk` is `null`. |
@@ -162,11 +162,13 @@ return [
 | `approvals.enabled` | `bool` | `false` (`FORMS_APPROVALS_ENABLED`) | Enable routing submissions through the approvals engine. Read strictly: `true`/`1`/`on`/`yes` or `false`/`0`/`off`/`no`; anything else throws `InvalidConfigurationException`. |
 | `definitions` | `array` | `[]` | Declarative form definitions synced by `forms:sync` (each entry an array). |
 
-A default applies only when a key is absent (unset or `null`). Every value that is present must
-fit: integers accept an `int` or a plain integer string (every env value is a string), so `10MB`,
-`5.5` or a blank value throws rather than being ignored; a blank or non-string bucket or disk
-name, a `media.visibility` typo (it no longer reads as private), or a junk list entry throws
-`InvalidConfigurationException`. `php artisan about` renders a broken setting as `INVALID`.
+A key that is not set — absent, `null`, or blank like a host's `FORMS_MEDIA_DISK=` — takes its
+default; an optional one (`media.disk`, `media.max_file_size`, `media.responsive_widths`,
+`media.temporary_url_lifetime`) stays unset, and a blank `fields.*` or `field_types.*` entry is
+unmapped. Every value that is set must fit: integers accept an `int` or a plain integer string
+(every env value is a string), so `10MB` or `5.5` throws rather than being ignored; a non-string
+bucket or disk name, a `media.visibility` typo (it no longer reads as private), or a junk list
+entry throws `InvalidConfigurationException`. `php artisan about` renders a broken setting as `INVALID`.
 
 ## Usage
 

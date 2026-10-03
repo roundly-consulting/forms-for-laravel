@@ -40,14 +40,15 @@ final readonly class FormDefinitionData
 
     /**
      * A definition read from config carries its expiry as a date string or a Unix
-     * timestamp as often as a Carbon instance; each reads as the same moment. Empty = none.
+     * timestamp as often as a Carbon instance; each reads as the same moment. Not set — null
+     * or blank (`''`, whitespace) — means none, never "now".
      *
      * @throws InvalidArgumentException when the value is not a date at all
      */
     private static function expiresAt(mixed $value): ?CarbonInterface
     {
         return match (true) {
-            $value === null, $value === '' => null,
+            $value === null, is_string($value) && trim($value) === '' => null,
             $value instanceof CarbonInterface => $value,
             $value instanceof DateTimeInterface => Carbon::instance($value),
             is_int($value) => Carbon::createFromTimestamp($value, date_default_timezone_get()),

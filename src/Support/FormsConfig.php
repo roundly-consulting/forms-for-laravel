@@ -12,10 +12,11 @@ use RoundlyConsulting\PackageToolkit\Support\Config;
 /**
  * Strict readers for the package's non-boolean settings.
  *
- * A default applies only when the key is absent (null). Anything present but unusable — a
- * `publik` visibility, a blank disk, `10MB` for a size, a field type mapped to `integr`, a
- * resolver that is not a {@see Resolver} — throws {@see InvalidConfigurationException} naming
- * the key, so a typo never quietly falls back.
+ * A setting that is not set — absent, null, or blank like a host's `KEY=` — takes its default
+ * (or, for an optional setting such as the upload disk, none; a blank map entry is unmapped).
+ * Anything else unusable — a `publik` visibility, a non-string disk, `10MB` for a size, a field
+ * type mapped to `integr`, a resolver that is not a {@see Resolver} — throws
+ * {@see InvalidConfigurationException} naming the key, so a typo never quietly falls back.
  *
  * @internal
  */
@@ -62,13 +63,13 @@ final class FormsConfig
      */
     public static function acceptedMimeTypes(): array
     {
-        return self::stringList('forms.media.accepted_mime_types', config('forms.media.accepted_mime_types') ?? []);
+        return self::stringList('forms.media.accepted_mime_types', self::unlessBlank(config('forms.media.accepted_mime_types')) ?? []);
     }
 
     /** The upload size cap in bytes, or null for media-library's own limit. */
     public static function maxFileSize(): ?int
     {
-        return config('forms.media.max_file_size') === null
+        return self::unlessBlank(config('forms.media.max_file_size')) === null
             ? null
             : Config::integer('forms.media.max_file_size', 1, 1);
     }
@@ -81,7 +82,7 @@ final class FormsConfig
     public static function responsiveWidths(): ?array
     {
         $key = 'forms.media.responsive_widths';
-        $widths = config($key);
+        $widths = self::unlessBlank(config($key));
 
         if ($widths === null) {
             return null;
@@ -104,7 +105,7 @@ final class FormsConfig
     /** The configured signed-URL lifetime in minutes, or null for media-library's default. */
     public static function configuredTemporaryUrlLifetime(): ?int
     {
-        return config('forms.media.temporary_url_lifetime') === null
+        return self::unlessBlank(config('forms.media.temporary_url_lifetime')) === null
             ? null
             : Config::integer('forms.media.temporary_url_lifetime', 5, 1);
     }
@@ -118,13 +119,13 @@ final class FormsConfig
 
     /**
      * The {@see AttributeType} a field type maps to through `forms.field_types`; a type the map
-     * does not list (or a field with no type) is a plain string. A mapped value that is not an
-     * AttributeType throws.
+     * does not list, maps to a blank value (not set), or a field with no type is a plain string.
+     * A mapped value that is not an AttributeType throws.
      */
     public static function fieldType(?string $type): AttributeType
     {
         $types = self::fieldTypeMap();
-        $mapped = $type === null ? null : ($types[$type] ?? null);
+        $mapped = $type === null ? null : self::unlessBlank($types[$type] ?? null);
 
         if ($mapped === null) {
             return AttributeType::String_;
@@ -138,8 +139,8 @@ final class FormsConfig
 
     /**
      * The resolver class for a field type — its own `forms.fields` entry, else the `default`
-     * entry — or null when neither is mapped. A mapped value that is not a {@see Resolver}
-     * class throws.
+     * entry — or null when neither is mapped. A blank entry is not set (unmapped). A mapped
+     * value that is not a {@see Resolver} class throws.
      *
      * @return class-string<Resolver>|null
      */
@@ -147,9 +148,9 @@ final class FormsConfig
     {
         $resolvers = self::resolverMap();
 
-        if ($type !== null && ($resolvers[$type] ?? null) !== null) {
+        if ($type !== null && self::unlessBlank($resolvers[$type] ?? null) !== null) {
             [$entry, $class] = [$type, $resolvers[$type]];
-        } elseif (($resolvers['default'] ?? null) !== null) {
+        } elseif (self::unlessBlank($resolvers['default'] ?? null) !== null) {
             [$entry, $class] = ['default', $resolvers['default']];
         } else {
             return null;
@@ -191,7 +192,7 @@ final class FormsConfig
     public static function definitions(): array
     {
         $key = 'forms.definitions';
-        $definitions = config($key) ?? [];
+        $definitions = self::unlessBlank(config($key)) ?? [];
 
         if (! is_array($definitions)) {
             throw self::notA($key, 'list of form definition arrays', $definitions);
@@ -216,7 +217,7 @@ final class FormsConfig
      */
     private static function map(string $key): array
     {
-        $map = config($key) ?? [];
+        $map = self::unlessBlank(config($key)) ?? [];
 
         if (! is_array($map)) {
             throw self::notA($key, 'map', $map);
@@ -232,17 +233,26 @@ final class FormsConfig
 
     private static function optionalString(string $key): ?string
     {
-        $value = config($key);
+        $value = self::unlessBlank(config($key));
 
         if ($value === null) {
             return null;
         }
 
-        if (! is_string($value) || trim($value) === '') {
+        if (! is_string($value)) {
             throw InvalidConfigurationException::notAString($key, $value);
         }
 
         return $value;
+    }
+
+    /**
+     * A raw config value, with a blank string (`''` or whitespace — a host's `KEY=`) read as
+     * null: not set, exactly like an absent key.
+     */
+    private static function unlessBlank(mixed $value): mixed
+    {
+        return is_string($value) && trim($value) === '' ? null : $value;
     }
 
     /**
