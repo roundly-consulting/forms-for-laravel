@@ -19,6 +19,7 @@ use RoundlyConsulting\Forms\Facades\Forms;
 use RoundlyConsulting\Forms\Listeners\SyncSubmissionStatusFromApproval;
 use RoundlyConsulting\Forms\Models\FormSubmission;
 use RoundlyConsulting\Forms\Tests\testable\Reviewer;
+use RoundlyConsulting\PackageToolkit\Exceptions\InvalidConfigurationException;
 
 beforeEach(function () {
     config()->set('forms.approvals.enabled', true);
@@ -271,3 +272,13 @@ it('reads the env-backed enabled flag as a boolean string', function (string $fl
     ['0', false],
     ['', false],
 ]);
+
+it('throws on an enabled-flag typo instead of reading it as off (strict config)', function () {
+    config()->set('forms.approvals.enabled', 'disabled');
+
+    expect(fn () => Forms::review(FormSubmission::factory()->create())->requiring([Reviewer::query()->create()])->open())
+        ->toThrow(
+            InvalidConfigurationException::class,
+            'Configuration value [forms.approvals.enabled] must be a boolean (true/false, 1/0, on/off or yes/no), [disabled] given.',
+        );
+});
