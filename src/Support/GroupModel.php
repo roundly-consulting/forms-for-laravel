@@ -10,18 +10,16 @@ use RoundlyConsulting\PackageToolkit\Support\ModelResolver;
 /**
  * Resolves the Eloquent model backing field groups from `forms.models.group`.
  *
- * The toolkit's ModelResolver validates that the configured value is a real
- * Eloquent model; anything that is not a Group (so it cannot answer the
- * package's scopes and relations) falls back to the packaged model.
+ * Absent config resolves the packaged model; anything else must be that model or a subclass of
+ * it, or the toolkit's ModelResolver throws InvalidConfigurationException naming the key — a
+ * foreign class is never silently replaced.
  */
 final class GroupModel
 {
     /** @return class-string<Group> */
     public static function class(): string
     {
-        $model = ModelResolver::for('forms.models.group', Group::class);
-
-        return is_a($model, Group::class, true) ? $model : Group::class;
+        return ModelResolver::for('forms.models.group', Group::class);
     }
 
     public static function new(): Group

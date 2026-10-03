@@ -10,18 +10,16 @@ use RoundlyConsulting\PackageToolkit\Support\ModelResolver;
 /**
  * Resolves the Eloquent model backing per-field submission rows from `forms.models.submission`.
  *
- * The toolkit's ModelResolver validates that the configured value is a real
- * Eloquent model; anything that is not a Submission (so it cannot answer the
- * package's scopes and relations) falls back to the packaged model.
+ * Absent config resolves the packaged model; anything else must be that model or a subclass of
+ * it, or the toolkit's ModelResolver throws InvalidConfigurationException naming the key — a
+ * foreign class is never silently replaced.
  */
 final class SubmissionModel
 {
     /** @return class-string<Submission> */
     public static function class(): string
     {
-        $model = ModelResolver::for('forms.models.submission', Submission::class);
-
-        return is_a($model, Submission::class, true) ? $model : Submission::class;
+        return ModelResolver::for('forms.models.submission', Submission::class);
     }
 
     public static function new(): Submission

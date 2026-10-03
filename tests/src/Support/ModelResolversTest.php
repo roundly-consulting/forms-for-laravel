@@ -31,11 +31,14 @@ it('resolves a host subclass configured in forms.models', function (): void {
         ->and(FormModel::new())->toBeInstanceOf(CustomForm::class);
 });
 
-it('falls back to the packaged model when the configured class is a model but not ours', function (): void {
-    // A real Eloquent model that cannot answer the package's scopes and relations.
+it('refuses a foreign model instead of falling back to the packaged one', function (): void {
+    // The toolkit refuses any class that is not the packaged model or a subclass of it.
     config()->set('forms.models.form', Submitter::class);
 
-    expect(FormModel::class())->toBe(Form::class);
+    expect(fn (): string => FormModel::class())->toThrow(
+        InvalidConfigurationException::class,
+        'Configuration value [forms.models.form] must be a class-string of ['.Form::class.'], ['.Submitter::class.'] given.',
+    );
 });
 
 it('throws when the configured class is not an eloquent model', function (): void {

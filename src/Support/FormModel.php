@@ -10,18 +10,16 @@ use RoundlyConsulting\PackageToolkit\Support\ModelResolver;
 /**
  * Resolves the Eloquent model backing form definitions from `forms.models.form`.
  *
- * The toolkit's ModelResolver validates that the configured value is a real
- * Eloquent model; anything that is not a Form (so it cannot answer the
- * package's scopes and relations) falls back to the packaged model.
+ * Absent config resolves the packaged model; anything else must be that model or a subclass of
+ * it, or the toolkit's ModelResolver throws InvalidConfigurationException naming the key — a
+ * foreign class is never silently replaced.
  */
 final class FormModel
 {
     /** @return class-string<Form> */
     public static function class(): string
     {
-        $model = ModelResolver::for('forms.models.form', Form::class);
-
-        return is_a($model, Form::class, true) ? $model : Form::class;
+        return ModelResolver::for('forms.models.form', Form::class);
     }
 
     public static function new(): Form
