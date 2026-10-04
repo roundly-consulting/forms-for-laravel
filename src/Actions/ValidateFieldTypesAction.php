@@ -60,7 +60,7 @@ final readonly class ValidateFieldTypesAction
                 } catch (InvalidAttributeValueException) {
                     $errors[$field->path()] = [(string) trans('forms::messages.invalid_field_value', [
                         'attribute' => $field->name,
-                        'type' => $field->attributeType()->value,
+                        'type' => (string) trans('forms::messages.types.'.$field->attributeType()->value),
                     ])];
                 }
             });

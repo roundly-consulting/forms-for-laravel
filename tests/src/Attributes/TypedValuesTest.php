@@ -121,6 +121,33 @@ it('rejects a value that does not satisfy the mapped type', function () {
         ->toThrow(ValidationException::class, 'field must be a valid integer.');
 });
 
+it('names the expected type in words in every language', function (string $type, mixed $value, string $en, string $sk) {
+    $field = typedField($type);
+    $form = $field->form->fresh()->load('fields');
+
+    $message = function () use ($form, $field, $value): string {
+        try {
+            app(ValidateFieldTypesAction::class)->execute($form, requestFor($field, $value));
+        } catch (ValidationException $exception) {
+            return $exception->errors()[$field->path()][0];
+        }
+
+        throw new RuntimeException('The value passed its type check.');
+    };
+
+    expect($message())->toBe("The {$field->name} field must be a valid {$en}.");
+
+    app()->setLocale('sk');
+
+    expect($message())->toBe("Pole {$field->name} musí obsahovať {$sk}.");
+})->with([
+    'integer' => ['number', 'abc', 'integer', 'celé číslo'],
+    'float' => ['decimal', 'abc', 'number', 'číslo'],
+    'boolean' => ['checkbox', 'maybe', 'yes/no value', 'hodnotu áno alebo nie'],
+    'array' => ['multiselect', 'abc', 'list', 'zoznam hodnôt'],
+    'datetime' => ['date', 'not-a-date', 'date', 'platný dátum'],
+]);
+
 it('accepts a valid value and ignores null and hidden fields', function () {
     $field = typedField('number');
     $form = $field->form->fresh()->load('fields');

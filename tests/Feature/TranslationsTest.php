@@ -37,12 +37,12 @@ it('serves slovak through the package namespace', function (): void {
     app()->setLocale('sk');
 
     expect(trans('forms::messages.form_not_found', ['key' => 'contact']))->toBe('Pre kľúč [contact] sa nenašiel žiadny formulár.')
-        ->and(trans('forms::messages.invalid_field_value', ['attribute' => 'vek', 'type' => 'integer']))
-        ->toBe('Pole vek musí obsahovať platnú hodnotu typu integer.');
+        ->and(trans('forms::messages.invalid_field_value', ['attribute' => 'vek', 'type' => trans('forms::messages.types.integer')]))
+        ->toBe('Pole vek musí obsahovať celé číslo.');
 
     app()->setLocale('en');
 
     expect(trans('forms::messages.form_not_found', ['key' => 'contact']))->toBe('No form found for key [contact].')
-        ->and(trans('forms::messages.invalid_field_value', ['attribute' => 'age', 'type' => 'integer']))
+        ->and(trans('forms::messages.invalid_field_value', ['attribute' => 'age', 'type' => trans('forms::messages.types.integer')]))
         ->toBe('The age field must be a valid integer.');
 });
