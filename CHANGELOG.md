@@ -6,6 +6,8 @@ All notable changes to `forms-for-laravel` are documented in this file. The form
 
 ## Unreleased
 
+## 1.0.2 - 2026-10-04
+
 ### Fixed
 
 - A field that fails its type check now names the expected type in words, in the current locale
