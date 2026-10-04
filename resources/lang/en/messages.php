@@ -7,8 +7,8 @@ return [
     'multiple_forms_found' => 'Multiple forms found for key [:key].',
     'unresolvable_field' => 'No resolver registered for field type [:type].',
     'submission_closed' => 'Form [:key] is not accepting submissions.',
-    'draft_not_found' => 'No draft submission found for uuid [:uuid].',
-    'submission_not_found' => 'No submission found for uuid [:uuid].',
+    'draft_not_found' => 'No draft submission found for UUID [:uuid].',
+    'submission_not_found' => 'No submission found for UUID [:uuid].',
     'invalid_field_value' => 'The :attribute field must be a valid :type.',
     // The `:type` of invalid_field_value, per AttributeType — worded to fit that sentence.
     'types' => [

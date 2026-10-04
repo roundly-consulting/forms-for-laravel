@@ -93,7 +93,7 @@ it('accepts the model and reuses it', function (): void {
 
 it('throws for an unknown or malformed uuid', function (string $uuid): void {
     expect(fn () => Forms::submission($uuid)->model())
-        ->toThrow(SubmissionNotFoundException::class, "No submission found for uuid [{$uuid}].")
+        ->toThrow(SubmissionNotFoundException::class, "No submission found for UUID [{$uuid}].")
         ->and(fn () => Forms::submission($uuid)->get())->toThrow(SubmissionNotFoundException::class)
         ->and(fn () => Forms::review($uuid))->toThrow(SubmissionNotFoundException::class);
 })->with([

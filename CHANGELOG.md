@@ -11,6 +11,7 @@ All notable changes to `forms-for-laravel` are documented in this file. The form
 - A field that fails its type check now names the expected type in words, in the current locale
   ("must be a valid list" / "must be a valid date" instead of "a valid array" / "a valid datetime");
   the names are translatable under `forms::messages.types.*` (English and Slovak).
+- `DraftNotFoundException` and `SubmissionNotFoundException` messages now write "UUID" in capitals.
 
 ## 1.0.1 - 2026-10-04
 
