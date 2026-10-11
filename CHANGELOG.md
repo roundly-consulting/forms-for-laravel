@@ -6,6 +6,10 @@ All notable changes to `forms-for-laravel` are documented in this file. The form
 
 ## Unreleased
 
+### Changed
+
+- Maintenance: requires the latest roundly packages — package-toolkit `^1.3.0`, enums `^1.1.0`, approvals `^1.2.3`, attributes `^1.1.0`, media-library `^1.1.2`; dev: testing `^1.2.1`.
+
 ## 1.0.2 - 2026-10-04
 
 ### Fixed
