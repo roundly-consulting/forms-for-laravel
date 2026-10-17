@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace RoundlyConsulting\Forms\Tests\testable;
 
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\ServiceProvider;
 use RoundlyConsulting\Forms\Tests\TestCase;
 
 /**
@@ -23,13 +22,9 @@ abstract class UuidKeyTestCase extends TestCase
         ]);
     }
 
-    protected function defineDatabaseMigrations(): void
+    /** @return list<class-string<ServiceProvider>|string> */
+    protected function migrationSources(): array
     {
-        parent::defineDatabaseMigrations();
-
-        Schema::create('uuid_senders', function (Blueprint $table): void {
-            $table->uuid('id')->primary();
-            $table->timestamps();
-        });
+        return [...parent::migrationSources(), __DIR__.'/../database/uuid-senders'];
     }
 }

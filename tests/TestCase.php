@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace RoundlyConsulting\Forms\Tests;
 
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 use RoundlyConsulting\Approvals\ApprovalsServiceProvider;
 use RoundlyConsulting\Attributes\AttributesServiceProvider;
@@ -40,7 +38,9 @@ abstract class TestCase extends PackageTestCase
      *  - attributes ships the tables its registry/casts persist into;
      *  - approvals' engine tables back the submission review flow (a FormSubmission is an
      *    approvals subject);
-     *  - forms ships its own eight.
+     *  - forms ships its own eight;
+     *  - the suite's `submitters` sender table, standing in for a table a host owns (a
+     *    source, not a create after the migrate, so a kept schema stays kept).
      *
      * @return list<class-string<ServiceProvider>|string>
      */
@@ -51,7 +51,16 @@ abstract class TestCase extends PackageTestCase
             AttributesServiceProvider::class,
             ApprovalsServiceProvider::class,
             FormsServiceProvider::class,
+            __DIR__.'/database/migrations',
         ];
+    }
+
+    /**
+     * Migrate once per worker and schema signature, then reset only the data between tests.
+     */
+    protected function keepsMigratedSchema(): bool
+    {
+        return true;
     }
 
     /**
@@ -66,19 +75,5 @@ abstract class TestCase extends PackageTestCase
             'media.image_driver' => 'gd',
             'media.responsive.widths' => [320, 640],
         ];
-    }
-
-    /**
-     * A sender table for exercising morph relations and the HasForms trait. It stands in for
-     * a table a host owns, so it is built here rather than shipped.
-     */
-    protected function defineDatabaseMigrations(): void
-    {
-        parent::defineDatabaseMigrations();
-
-        Schema::create('submitters', function (Blueprint $table): void {
-            $table->id();
-            $table->timestamps();
-        });
     }
 }
