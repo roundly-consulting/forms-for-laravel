@@ -87,6 +87,9 @@ ArchPresets::modelsResolveThroughSeam(__DIR__.'/../src', 'Support', [
     'forms.models.form_submission',
 ]);
 
+// A host swap reaches every packaged factory too: each one builds the configured model.
+ArchPresets::factoriesResolveThroughSeam(__DIR__.'/../database/factories', __DIR__.'/../src', 'Support');
+
 /**
  * The morph-key seam, guarded. Forms migrated its submission morph columns off raw
  * `$table->morphs()` onto `morphKey($name, KeyType::…)` so a uuid/ulid host can flip its
