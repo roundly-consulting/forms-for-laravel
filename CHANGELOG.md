@@ -6,6 +6,8 @@ All notable changes to `forms-for-laravel` are documented in this file. The form
 
 ## Unreleased
 
+## 1.0.4 - 2026-10-17
+
 ### Fixed
 
 - Factories build the configured model when a host swaps it.
