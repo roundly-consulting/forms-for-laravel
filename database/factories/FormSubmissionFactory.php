@@ -9,11 +9,23 @@ use Illuminate\Support\Str;
 use RoundlyConsulting\Forms\Enums\SubmissionStatus;
 use RoundlyConsulting\Forms\Models\Form;
 use RoundlyConsulting\Forms\Models\FormSubmission;
+use RoundlyConsulting\Forms\Support\FormSubmissionModel;
 
 /** @extends Factory<FormSubmission> */
 class FormSubmissionFactory extends Factory
 {
     protected $model = FormSubmission::class;
+
+    /**
+     * Build the model the host configured in `forms.models.form_submission`, not the packaged one,
+     * so a host subclass comes out of the factory with its own events and observers.
+     *
+     * @return class-string<FormSubmission>
+     */
+    public function modelName(): string
+    {
+        return FormSubmissionModel::class();
+    }
 
     /** @return array<model-property<FormSubmission>, mixed> */
     public function definition(): array

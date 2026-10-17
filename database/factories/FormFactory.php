@@ -8,11 +8,23 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use RoundlyConsulting\Forms\Models\Form;
+use RoundlyConsulting\Forms\Support\FormModel;
 
 /** @extends Factory<Form> */
 class FormFactory extends Factory
 {
     protected $model = Form::class;
+
+    /**
+     * Build the model the host configured in `forms.models.form`, not the packaged one,
+     * so a host subclass comes out of the factory with its own events and observers.
+     *
+     * @return class-string<Form>
+     */
+    public function modelName(): string
+    {
+        return FormModel::class();
+    }
 
     /** @return array<model-property<Form>, mixed> */
     public function definition(): array

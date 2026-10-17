@@ -5,6 +5,11 @@ declare(strict_types=1);
 use Illuminate\Http\Request;
 use RoundlyConsulting\Forms\Facades\Forms;
 use RoundlyConsulting\Forms\GroupBuilder;
+use RoundlyConsulting\Forms\Models\Field;
+use RoundlyConsulting\Forms\Models\Form;
+use RoundlyConsulting\Forms\Models\FormSubmission;
+use RoundlyConsulting\Forms\Models\Group;
+use RoundlyConsulting\Forms\Models\Submission;
 use RoundlyConsulting\Forms\Tests\testable\CustomField;
 use RoundlyConsulting\Forms\Tests\testable\CustomForm;
 use RoundlyConsulting\Forms\Tests\testable\CustomFormSubmission;
@@ -101,3 +106,26 @@ it('honours a host aggregate model through the real submit flow', function (): v
 // key really defaults to the packaged model — is pinned once in tests/ArchTest.php by
 // `ArchPresets::swappableModelsAreNotFinal()`. It deliberately does NOT live here: that
 // preset asserts the config *default*, which this directory has swapped away.
+
+/**
+ * The factories named the packaged models, so `Form::factory()` and the rest (and a factory
+ * aggregate's parent form) built the packaged classes: the host's model events never ran.
+ */
+it('builds every configured model from the packaged factories', function (): void {
+    CustomForm::resetCreationCount();
+
+    $form = Form::factory()->create();
+    // Relation names are explicit: `for()` guesses them from the parent's class basename.
+    $group = Group::factory()->for($form, 'form')->create();
+    $field = Field::factory()->for($form, 'form')->for($group, 'group')->create();
+    $submission = Submission::factory()->for($form, 'form')->for($group, 'group')->for($field, 'field')->create();
+    $aggregate = FormSubmission::factory()->create();
+
+    expect($form::class)->toBe(CustomForm::class)
+        ->and(CustomForm::factory()->create()::class)->toBe(CustomForm::class)
+        ->and($group::class)->toBe(CustomGroup::class)
+        ->and($field::class)->toBe(CustomField::class)
+        ->and($submission::class)->toBe(CustomSubmission::class)
+        ->and($aggregate::class)->toBe(CustomFormSubmission::class)
+        ->and(CustomForm::creationCount())->toBe(3);
+});
